@@ -1,0 +1,20 @@
+# Build outputs & packages
+bin/
+obj/
+dist/
+.cache/
+packages/
+release/
+
+# User runtime data & caches
+UserData/
+*.log
+crash.log
+
+# IDE & OS files
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+*.tmp

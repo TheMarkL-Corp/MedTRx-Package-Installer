@@ -1,0 +1,142 @@
+# Project Memory & Architecture Dump: MedTRx APP
+
+**Project Name:** MedTRx Native Desktop Wrapper & Installer  
+**Workspace:** `d:\Antigravity Projects\AMiS-MedTRx-APP Installer`  
+**Created:** 2026-09-03  
+**Status:** Active / Production Ready (v1.0.0)
+
+---
+
+## 1. Executive Summary & Design Decisions
+
+MedTRx APP is an official, lightweight native Windows desktop wrapper and installer designed specifically for hospital workstations and AMiS medical carts. Instead of running a heavy Chromium browser or a bloated Electron runtime (~150MB+), MedTRx embeds the system's high-performance **Microsoft Edge WebView2 Evergreen Runtime** via a compiled native C# Windows Forms container.
+
+### Key Decisions Resolved during Discovery (/grill-me):
+- **Core Technology:** Native C# (.NET Framework 4.5+ / C# 5) + `Microsoft.Web.WebView2`. Compiled via Windows built-in `csc.exe`. Zero external compiler or SDK dependencies required.
+- **Payload Size:** The compiled binary is only **~48 KB**, and the entire portable distribution package is **under 1 MB**.
+- **Window Modes:** Native standard Windows title bar with Min/Max/Close, high-DPI scaling, and full keyboard toggle support (`F11` for true borderless fullscreen/kiosk mode, `Esc` to return to windowed).
+- **Configuration:** External `config.json` next to the executable. Falls back to an in-app setup dialog if unconfigured, allowing IT admins or clinicians to set the hospital server URL effortlessly.
+- **Persistence & Isolation:** Dedicated user data and session cache stored in `%LOCALAPPDATA%\MedTRx\UserData`, keeping logins, cookies, and tokens active across cart reboots without interfering with personal Edge browsing.
+- **Single-Instance Mutex:** Only one instance of MedTRx runs at a time. Launching a second instance brings the existing window to the front.
+- **Taskbar & Shell Integration:** Explicit `AppUserModelID` (`MedTRx.MedicalApp.Client`) registered for clean taskbar grouping and pinning.
+
+---
+
+## 2. Directory Structure
+
+```text
+AMiS-MedTRx-APP Installer/
+├── .gitignore                      # Git exclusion rules (build caches, user data, binaries)
+├── config.json                     # Default root configuration template
+├── README.md                       # Quick start and operator guide
+├── PROJECT_MEMORY.md               # Persistent architectural memory dump (this file)
+│
+├── assets/
+│   └── logo.ico                    # Official application icon (multi-res 16px to 256px)
+│
+├── src/
+│   ├── Program.cs                  # Entry point, single-instance mutex, AppUserModelID, crash logging
+│   ├── MainForm.cs                 # Main form hosting WebView2, navigation events, F11 fullscreen
+│   ├── SettingsForm.cs             # In-app configuration dialog (F2 / Ctrl+,)
+│   ├── ConfigManager.cs            # JSON config loader/saver (System.Web.Script.Serialization)
+│   └── ErrorPage.html              # Clean hospital-grade offline screen with Retry button
+│
+├── scripts/
+│   ├── generate_icon.py            # Python PIL icon generator for logo.ico
+│   ├── build.ps1                   # Automated build engine using csc.exe & NuGet download
+│   ├── build.bat                   # Double-click launcher for build.ps1
+│   ├── install.ps1                 # User-level installer (Desktop + Start Menu + Taskbar pin)
+│   ├── install.bat                 # Double-click launcher for install.ps1
+│   ├── uninstall.ps1               # Clean uninstaller script
+│   └── uninstall.bat               # Double-click launcher for uninstall.ps1
+│
+└── dist/                           # Standalone portable distribution folder
+    ├── MedTRx.exe                  # Compiled native binary (48 KB)
+    ├── Microsoft.Web.WebView2.Core.dll
+    ├── Microsoft.Web.WebView2.WinForms.dll
+    ├── WebView2Loader.dll
+    ├── config.json                 # Distribution configuration
+    ├── logo.ico                    # App and shortcut icon
+    ├── ErrorPage.html              # Embedded offline fallback page
+    ├── install.bat                 # Portable installer for client machines
+    ├── install.ps1
+    ├── uninstall.bat               # Portable uninstaller for client machines
+    ├── uninstall.ps1
+    └── runtimes/                   # Native architecture loaders (x64 / x86)
+```
+
+---
+
+## 3. Configuration Specification (`config.json`)
+
+The configuration file is formatted as standard JSON. It can be placed directly alongside `MedTRx.exe` (primary) or in `%LOCALAPPDATA%\MedTRx\config.json` (user override).
+
+```json
+{
+  "url": "https://medtrx.your-hospital.com",
+  "appName": "MedTRx",
+  "startFullscreen": false,
+  "startMaximized": true,
+  "enableDevTools": false,
+  "enableNavigationKeys": true,
+  "zoomFactor": 1.0,
+  "allowExternalLinks": true
+}
+```
+
+### Parameter Reference:
+| Key | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `url` | `string` | `""` | Target web app URL. If blank, triggers the Settings GUI dialog on launch. |
+| `appName` | `string` | `"MedTRx"` | Name displayed in window title bar and taskbar. |
+| `startFullscreen` | `bool` | `false` | When `true`, opens immediately in borderless fullscreen/kiosk mode. |
+| `startMaximized` | `bool` | `true` | When `true`, opens in maximized windowed mode. |
+| `enableDevTools` | `bool` | `false` | Enables `F12` Edge Chromium Developer Tools (set to `false` in production). |
+| `enableNavigationKeys` | `bool` | `true` | Enables `F5` / `Ctrl+R` page reload and browser navigation shortcuts. |
+| `zoomFactor` | `number` | `1.0` | Default UI zoom ratio (e.g. `1.1` for 110% magnification). |
+| `allowExternalLinks` | `bool` | `true` | When `true`, external popups open in system browser rather than hijacking cart. |
+
+---
+
+## 4. In-App Hotkeys & Navigation
+
+- **`F11`**: Toggle borderless fullscreen / windowed mode.
+- **`Esc`**: Exit fullscreen mode back to windowed mode.
+- **`F5` / `Ctrl + R`**: Reload current web application.
+- **`F2` / `Ctrl + ,`**: Open the in-app Configuration & Server URL dialog.
+- **`F12`**: Open Chromium DevTools (only when `enableDevTools` is `true`).
+
+---
+
+## 5. Build Engine Mechanics
+
+The build engine (`scripts\build.ps1` / `scripts\build.bat`) operates with **zero external prerequisites**:
+1. Checks for Windows built-in `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`.
+2. Downloads `Microsoft.Web.WebView2` NuGet package from nuget.org (cached locally in `.cache/`).
+3. Extracts `Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll`, and native `WebView2Loader.dll`.
+4. Compiles `src\Program.cs`, `src\MainForm.cs`, `src\SettingsForm.cs`, and `src\ConfigManager.cs` via a generated compiler response file (`build.rsp`) embedding `assets\logo.ico` into the executable's Win32 resources.
+5. Assembles all dependencies into `dist/`.
+
+---
+
+## 6. Installation & Deployment Architecture
+
+### Deployment Locations:
+- **Target Folder:** `%LOCALAPPDATA%\Programs\MedTRx` (no Administrator or UAC permissions required).
+- **Desktop Shortcut:** `%USERPROFILE%\Desktop\MedTRx.lnk` pointing to `MedTRx.exe` with `logo.ico`.
+- **Start Menu:** `%APPDATA%\Microsoft\Windows\Start Menu\Programs\MedTRx.lnk`.
+- **Add/Remove Programs:** Registered under `HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MedTRx` for native Windows uninstallation.
+- **Data & Cache:** Persistent profile data in `%LOCALAPPDATA%\MedTRx\UserData`.
+- **Logs:** Handled exceptions and crashes recorded in `%LOCALAPPDATA%\MedTRx\crash.log`.
+
+### Taskbar Pinning Note:
+Windows 10/11 deprecates programmatic verb execution for taskbar pinning to prevent unauthorized adware pinning. `install.ps1` attempts the shell verb automatically; in environments where Windows 11 blocks the verb, the shortcut and executable have an embedded `AppUserModelID`, allowing one-click manual pinning from the Desktop icon or running window with persistent grouping.
+
+---
+
+## 7. Replacing `logo.ico`
+
+To update the application icon with a new corporate or hospital design:
+1. Replace `assets\logo.ico` with the new multi-resolution `.ico` file.
+2. Run `scripts\build.bat`.
+3. Run `scripts\install.bat` to refresh the desktop shortcut and deployed binary.
