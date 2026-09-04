@@ -60,7 +60,9 @@ namespace MedTRx
             }
             catch { }
 
-            // Apply Initial Window State
+            // Apply Always-on-Top & Initial Window State
+            this.TopMost = config.alwaysOnTop;
+
             if (config.startFullscreen)
             {
                 SetFullscreen(true);
@@ -130,6 +132,17 @@ namespace MedTRx
                     );
                 }
                 catch { }
+
+                // Touchscreen Fullscreen Sidebar injection
+                if (config.touchFullscreenSidebar)
+                {
+                    try
+                    {
+                        string sidebarScript = GetTouchSidebarInjectionScript(isFullscreen);
+                        await webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(sidebarScript);
+                    }
+                    catch { }
+                }
 
                 // Set zoom factor
                 if (config.zoomFactor > 0.1 && config.zoomFactor < 5.0)
@@ -389,6 +402,16 @@ namespace MedTRx
                     {
                         ShowSettingsDialog();
                     }
+                    else if (json != null && json.Contains("\"toggle_fullscreen\""))
+                    {
+                        this.BeginInvoke(new Action(() => ToggleFullscreen()));
+                    }
+                    else if (json != null && json.Contains("\"reload\""))
+                    {
+                        this.BeginInvoke(new Action(() => {
+                            if (webView != null && webView.CoreWebView2 != null) webView.CoreWebView2.Reload();
+                        }));
+                    }
                 }
                 else
                 {
@@ -396,9 +419,19 @@ namespace MedTRx
                     {
                         NavigateToTargetUrl();
                     }
-                    else if (msg.Equals("settings", StringComparison.OrdinalIgnoreCase))
+                    else if (msg.Equals("settings", StringComparison.OrdinalIgnoreCase) || msg.Equals("open_settings", StringComparison.OrdinalIgnoreCase))
                     {
                         ShowSettingsDialog();
+                    }
+                    else if (msg.Equals("toggle_fullscreen", StringComparison.OrdinalIgnoreCase))
+                    {
+                        this.BeginInvoke(new Action(() => ToggleFullscreen()));
+                    }
+                    else if (msg.Equals("reload", StringComparison.OrdinalIgnoreCase))
+                    {
+                        this.BeginInvoke(new Action(() => {
+                            if (webView != null && webView.CoreWebView2 != null) webView.CoreWebView2.Reload();
+                        }));
                     }
                 }
             }
@@ -597,8 +630,9 @@ namespace MedTRx
                 this.FormBorderStyle = FormBorderStyle.None;
                 this.WindowState = FormWindowState.Normal;
                 this.Bounds = Screen.FromControl(this).Bounds;
-                this.TopMost = false;
+                this.TopMost = config.alwaysOnTop;
                 isFullscreen = true;
+                NotifyFullscreenStateChanged(true);
             }
             else
             {
@@ -608,8 +642,23 @@ namespace MedTRx
                 {
                     this.Bounds = previousBounds;
                 }
+                this.TopMost = config.alwaysOnTop;
                 isFullscreen = false;
+                NotifyFullscreenStateChanged(false);
             }
+        }
+
+        private void NotifyFullscreenStateChanged(bool fullscreen)
+        {
+            try
+            {
+                if (webView != null && webView.CoreWebView2 != null)
+                {
+                    string js = string.Format("if (window.__medtrxSetFullscreenState) {{ window.__medtrxSetFullscreenState({0}); }}", fullscreen ? "true" : "false");
+                    webView.CoreWebView2.ExecuteScriptAsync(js);
+                }
+            }
+            catch { }
         }
 
         public void ShowSettingsDialog()
@@ -620,6 +669,7 @@ namespace MedTRx
                 {
                     this.config = settingsForm.Config;
                     this.Text = config.appName;
+                    this.TopMost = config.alwaysOnTop;
                     if (webView != null && webView.CoreWebView2 != null)
                     {
                         webView.CoreWebView2.Settings.AreDevToolsEnabled = config.enableDevTools;
@@ -627,6 +677,291 @@ namespace MedTRx
                     }
                 }
             }
+        }
+
+        private string GetTouchSidebarInjectionScript(bool startFullscreenState)
+        {
+            return @"
+(function() {
+    if (window.__medtrxSidebarInjected) return;
+    window.__medtrxSidebarInjected = true;
+
+    var isFullscreen = " + (startFullscreenState ? "true" : "false") + @";
+    var isExpanded = false;
+    var side = 'right'; // Upper-right corner default position
+    var autoHideTimer = null;
+
+    function createElements() {
+        if (document.getElementById('medtrx-touch-container')) return;
+
+        var host = document.createElement('div');
+        host.id = 'medtrx-touch-container';
+        host.style.cssText = 'position:fixed; z-index:2147483647; font-family:Segoe UI, -apple-system, sans-serif; user-select:none; -webkit-user-select:none;';
+
+        var style = document.createElement('style');
+        style.textContent = `
+            #medtrx-touch-container {
+                top: 24px;
+                right: 0px;
+                display: flex;
+                align-items: flex-start;
+                transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+            }
+            #medtrx-touch-container.medtrx-left {
+                right: auto;
+                left: 0px;
+                flex-direction: row-reverse;
+            }
+            #medtrx-touch-container.medtrx-collapsed-right {
+                transform: translateX(180px);
+            }
+            #medtrx-touch-container.medtrx-collapsed-left {
+                transform: translateX(-180px);
+            }
+            #medtrx-touch-container.medtrx-dimmed {
+                opacity: 0.35;
+            }
+            #medtrx-touch-tab {
+                width: 38px;
+                height: 56px;
+                background: linear-gradient(135deg, #0e7490, #0891b2);
+                color: #ffffff;
+                border-radius: 12px 0 0 12px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                box-shadow: -3px 4px 12px rgba(0,0,0,0.35);
+                font-size: 16px;
+                transition: transform 0.15s ease, background 0.15s ease;
+                touch-action: manipulation;
+            }
+            #medtrx-touch-container.medtrx-left #medtrx-touch-tab {
+                border-radius: 0 12px 12px 0;
+                box-shadow: 3px 4px 12px rgba(0,0,0,0.35);
+            }
+            #medtrx-touch-tab:active {
+                transform: scale(0.95);
+                background: #06b6d4;
+            }
+            #medtrx-touch-tab-arrow {
+                font-size: 12px;
+                line-height: 1;
+                margin-top: 2px;
+                transition: transform 0.2s ease;
+            }
+            #medtrx-touch-panel {
+                width: 180px;
+                background: rgba(15, 23, 42, 0.94);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                border: 1px solid rgba(56, 189, 248, 0.35);
+                box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+                border-radius: 0 0 0 14px;
+                padding: 10px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            #medtrx-touch-container.medtrx-left #medtrx-touch-panel {
+                border-radius: 0 0 14px 0;
+            }
+            .medtrx-touch-btn {
+                background: rgba(30, 41, 59, 0.9);
+                color: #ffffff;
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 8px;
+                padding: 12px 8px;
+                font-size: 13px;
+                font-weight: 600;
+                text-align: center;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                touch-action: manipulation;
+                transition: background 0.15s ease, transform 0.1s ease;
+            }
+            .medtrx-touch-btn:active {
+                background: #0e7490;
+                transform: scale(0.97);
+            }
+            .medtrx-touch-btn-primary {
+                background: #0891b2;
+                border-color: #38bdf8;
+                font-size: 14px;
+                font-weight: 700;
+            }
+            .medtrx-touch-btn-primary:active {
+                background: #06b6d4;
+            }
+            .medtrx-touch-secondary-row {
+                display: flex;
+                gap: 6px;
+            }
+            .medtrx-touch-secondary-row .medtrx-touch-btn {
+                flex: 1;
+                padding: 8px 4px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+        `;
+
+        var tab = document.createElement('div');
+        tab.id = 'medtrx-touch-tab';
+        tab.title = 'MedTRx Screen Controls';
+        tab.innerHTML = '<span>⛶</span><span id=""medtrx-touch-tab-arrow"">◀</span>';
+
+        var panel = document.createElement('div');
+        panel.id = 'medtrx-touch-panel';
+
+        // 1. Toggle Fullscreen Button
+        var btnFullscreen = document.createElement('button');
+        btnFullscreen.id = 'medtrx-btn-fullscreen';
+        btnFullscreen.className = 'medtrx-touch-btn medtrx-touch-btn-primary';
+        btnFullscreen.innerHTML = isFullscreen ? '<span>🗗</span> Exit Full' : '<span>⛶</span> Fullscreen';
+
+        // 2. Secondary Row: Reload & Swap Corner
+        var secRow = document.createElement('div');
+        secRow.className = 'medtrx-touch-secondary-row';
+
+        var btnReload = document.createElement('button');
+        btnReload.className = 'medtrx-touch-btn';
+        btnReload.innerHTML = '🔄 Reload';
+
+        var btnSwap = document.createElement('button');
+        btnSwap.id = 'medtrx-btn-swap';
+        btnSwap.className = 'medtrx-touch-btn';
+        btnSwap.innerHTML = '⇄ Side';
+        btnSwap.title = 'Swap Left / Right side';
+
+        secRow.appendChild(btnReload);
+        secRow.appendChild(btnSwap);
+
+        panel.appendChild(btnFullscreen);
+        panel.appendChild(secRow);
+
+        host.appendChild(tab);
+        host.appendChild(panel);
+        document.body.appendChild(style);
+        document.body.appendChild(host);
+
+        // Apply initial collapsed state
+        updateSidebarClass();
+
+        // Interactions
+        tab.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleSidebar();
+        });
+
+        btnFullscreen.addEventListener('click', function(e) {
+            e.stopPropagation();
+            sendHostMessage('toggle_fullscreen');
+            resetAutoHide();
+        });
+
+        btnReload.addEventListener('click', function(e) {
+            e.stopPropagation();
+            sendHostMessage('reload');
+            collapseSidebar();
+        });
+
+        btnSwap.addEventListener('click', function(e) {
+            e.stopPropagation();
+            side = (side === 'right' ? 'left' : 'right');
+            updateSidebarClass();
+            resetAutoHide();
+        });
+
+        panel.addEventListener('touchstart', function() { resetAutoHide(); }, { passive: true });
+        panel.addEventListener('click', function() { resetAutoHide(); });
+
+        document.addEventListener('click', function(e) {
+            if (isExpanded && !host.contains(e.target)) {
+                collapseSidebar();
+            }
+        });
+    }
+
+    function sendHostMessage(msg) {
+        try {
+            if (window.chrome && window.chrome.webview) {
+                window.chrome.webview.postMessage(msg);
+            }
+        } catch(e) {}
+    }
+
+    function toggleSidebar() {
+        if (isExpanded) {
+            collapseSidebar();
+        } else {
+            expandSidebar();
+        }
+    }
+
+    function expandSidebar() {
+        isExpanded = true;
+        updateSidebarClass();
+        resetAutoHide();
+    }
+
+    function collapseSidebar() {
+        isExpanded = false;
+        updateSidebarClass();
+        if (autoHideTimer) clearTimeout(autoHideTimer);
+    }
+
+    function resetAutoHide() {
+        if (autoHideTimer) clearTimeout(autoHideTimer);
+        autoHideTimer = setTimeout(function() {
+            if (isExpanded) {
+                collapseSidebar();
+            }
+        }, 4000);
+    }
+
+    function updateSidebarClass() {
+        var host = document.getElementById('medtrx-touch-container');
+        if (!host) return;
+
+        host.classList.remove('medtrx-left', 'medtrx-collapsed-right', 'medtrx-collapsed-left');
+
+        if (side === 'left') {
+            host.classList.add('medtrx-left');
+            if (!isExpanded) host.classList.add('medtrx-collapsed-left');
+        } else {
+            if (!isExpanded) host.classList.add('medtrx-collapsed-right');
+        }
+
+        var arrow = document.getElementById('medtrx-touch-tab-arrow');
+        if (arrow) {
+            if (side === 'right') {
+                arrow.textContent = isExpanded ? '▶' : '◀';
+            } else {
+                arrow.textContent = isExpanded ? '◀' : '▶';
+            }
+        }
+    }
+
+    window.__medtrxSetFullscreenState = function(fullscreen) {
+        isFullscreen = fullscreen;
+        var btn = document.getElementById('medtrx-btn-fullscreen');
+        if (btn) {
+            btn.innerHTML = isFullscreen ? '<span>🗗</span> Exit Full' : '<span>⛶</span> Fullscreen';
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', createElements);
+    } else {
+        createElements();
+    }
+})();
+";
         }
     }
 }

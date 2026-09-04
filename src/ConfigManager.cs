@@ -17,6 +17,8 @@ namespace MedTRx
         public bool turboMode { get; set; }
         public bool autoOpenPdf { get; set; }
         public string pdfViewerMode { get; set; }
+        public bool alwaysOnTop { get; set; }
+        public bool touchFullscreenSidebar { get; set; }
 
         public AppConfig()
         {
@@ -31,6 +33,8 @@ namespace MedTRx
             turboMode = true;
             autoOpenPdf = true;
             pdfViewerMode = "embedded";
+            alwaysOnTop = false;
+            touchFullscreenSidebar = true;
         }
     }
 

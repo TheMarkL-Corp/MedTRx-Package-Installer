@@ -10,8 +10,10 @@ namespace MedTRx
         private TextBox txtAppName;
         private CheckBox chkStartMaximized;
         private CheckBox chkStartFullscreen;
-        private CheckBox chkEnableDevTools;
+        private CheckBox chkAlwaysOnTop;
+        private CheckBox chkTouchSidebar;
         private CheckBox chkNavigationKeys;
+        private CheckBox chkEnableDevTools;
         private Button btnSave;
         private Button btnCancel;
 
@@ -28,7 +30,7 @@ namespace MedTRx
         private void InitializeComponent()
         {
             this.Text = "MedTRx - Application Configuration";
-            this.Size = new Size(540, 420);
+            this.Size = new Size(540, 480);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -110,28 +112,44 @@ namespace MedTRx
             // Checkboxes
             chkStartMaximized = new CheckBox();
             chkStartMaximized.Text = "Start Maximized";
-            chkStartMaximized.Location = new Point(20, startY + 135);
+            chkStartMaximized.Location = new Point(20, startY + 132);
             chkStartMaximized.AutoSize = true;
             chkStartMaximized.Checked = Config.startMaximized;
             this.Controls.Add(chkStartMaximized);
 
             chkStartFullscreen = new CheckBox();
             chkStartFullscreen.Text = "Start in Fullscreen / Kiosk Mode (F11 toggles anytime)";
-            chkStartFullscreen.Location = new Point(20, startY + 160);
+            chkStartFullscreen.Location = new Point(20, startY + 156);
             chkStartFullscreen.AutoSize = true;
             chkStartFullscreen.Checked = Config.startFullscreen;
             this.Controls.Add(chkStartFullscreen);
 
+            chkAlwaysOnTop = new CheckBox();
+            chkAlwaysOnTop.Text = "Keep Window Always on Top (Pins above taskbars & windows)";
+            chkAlwaysOnTop.Location = new Point(20, startY + 180);
+            chkAlwaysOnTop.AutoSize = true;
+            chkAlwaysOnTop.Checked = Config.alwaysOnTop;
+            chkAlwaysOnTop.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            this.Controls.Add(chkAlwaysOnTop);
+
+            chkTouchSidebar = new CheckBox();
+            chkTouchSidebar.Text = "Show Touchscreen Fullscreen Sidebar (Upper-right corner tab)";
+            chkTouchSidebar.Location = new Point(20, startY + 204);
+            chkTouchSidebar.AutoSize = true;
+            chkTouchSidebar.Checked = Config.touchFullscreenSidebar;
+            chkTouchSidebar.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            this.Controls.Add(chkTouchSidebar);
+
             chkNavigationKeys = new CheckBox();
             chkNavigationKeys.Text = "Enable F5 Reload & Navigation Keys";
-            chkNavigationKeys.Location = new Point(20, startY + 185);
+            chkNavigationKeys.Location = new Point(20, startY + 228);
             chkNavigationKeys.AutoSize = true;
             chkNavigationKeys.Checked = Config.enableNavigationKeys;
             this.Controls.Add(chkNavigationKeys);
 
             chkEnableDevTools = new CheckBox();
             chkEnableDevTools.Text = "Enable F12 Developer Tools (Debugging)";
-            chkEnableDevTools.Location = new Point(20, startY + 210);
+            chkEnableDevTools.Location = new Point(20, startY + 252);
             chkEnableDevTools.AutoSize = true;
             chkEnableDevTools.Checked = Config.enableDevTools;
             this.Controls.Add(chkEnableDevTools);
@@ -139,7 +157,7 @@ namespace MedTRx
             // Buttons
             btnSave = new Button();
             btnSave.Text = "Save & Launch";
-            btnSave.Location = new Point(260, startY + 245);
+            btnSave.Location = new Point(260, startY + 295);
             btnSave.Size = new Size(130, 36);
             btnSave.BackColor = Color.FromArgb(14, 116, 144);
             btnSave.ForeColor = Color.White;
@@ -151,7 +169,7 @@ namespace MedTRx
 
             btnCancel = new Button();
             btnCancel.Text = "Cancel";
-            btnCancel.Location = new Point(400, startY + 245);
+            btnCancel.Location = new Point(400, startY + 295);
             btnCancel.Size = new Size(100, 36);
             btnCancel.BackColor = Color.FromArgb(226, 232, 240);
             btnCancel.ForeColor = Color.FromArgb(30, 41, 59);
@@ -197,6 +215,8 @@ namespace MedTRx
             Config.appName = !string.IsNullOrEmpty(txtAppName.Text.Trim()) ? txtAppName.Text.Trim() : "MedTRx";
             Config.startMaximized = chkStartMaximized.Checked;
             Config.startFullscreen = chkStartFullscreen.Checked;
+            Config.alwaysOnTop = chkAlwaysOnTop.Checked;
+            Config.touchFullscreenSidebar = chkTouchSidebar.Checked;
             Config.enableNavigationKeys = chkNavigationKeys.Checked;
             Config.enableDevTools = chkEnableDevTools.Checked;
 

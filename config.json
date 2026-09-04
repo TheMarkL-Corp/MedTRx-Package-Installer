@@ -9,5 +9,7 @@
   "allowExternalLinks": true,
   "turboMode": true,
   "autoOpenPdf": true,
-  "pdfViewerMode": "embedded"
+  "pdfViewerMode": "embedded",
+  "alwaysOnTop": false,
+  "touchFullscreenSidebar": true
 }
