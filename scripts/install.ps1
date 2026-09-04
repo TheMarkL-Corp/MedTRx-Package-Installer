@@ -33,6 +33,23 @@ function Write-WarnMsg([string]$msg) {
     }
 }
 
+function Test-WebView2Installed {
+    $regPaths = @(
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+        "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+        "HKCU:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+    )
+    foreach ($r in $regPaths) {
+        if (Test-Path $r) {
+            $pv = (Get-ItemProperty -Path $r -ErrorAction SilentlyContinue).pv
+            if (-not [string]::IsNullOrEmpty($pv) -and $pv -ne "0.0.0.0") {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host "  MedTRx Application Installer                   " -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
@@ -71,7 +88,8 @@ $FilesToCopy = @(
     "Microsoft.Web.WebView2.WinForms.dll",
     "WebView2Loader.dll",
     "logo.ico",
-    "ErrorPage.html"
+    "ErrorPage.html",
+    "MicrosoftEdgeWebview2Setup.exe"
 )
 
 foreach ($file in $FilesToCopy) {
@@ -103,7 +121,42 @@ $UninstallPs1 = Join-Path $ScriptDir "uninstall.ps1"
 if (Test-Path $UninstallBat) { Copy-Item $UninstallBat -Destination (Join-Path $InstallDir "uninstall.bat") -Force }
 if (Test-Path $UninstallPs1) { Copy-Item $UninstallPs1 -Destination (Join-Path $InstallDir "uninstall.ps1") -Force }
 
-# 4. Create Shortcuts (Desktop & Start Menu)
+# 4. Check and Install Microsoft Edge WebView2 Runtime if missing
+Write-Step "Checking Microsoft Edge WebView2 Runtime..."
+if (-not (Test-WebView2Installed)) {
+    Write-WarnMsg "Microsoft Edge WebView2 Runtime was not detected on this system."
+    Write-Step "Installing Microsoft Edge WebView2 Evergreen Runtime..."
+    
+    $BootstrapperPath = Join-Path $InstallDir "MicrosoftEdgeWebview2Setup.exe"
+    if (-not (Test-Path $BootstrapperPath)) {
+        $BootstrapperPath = Join-Path $SourceDir "MicrosoftEdgeWebview2Setup.exe"
+    }
+    if (-not (Test-Path $BootstrapperPath)) {
+        $BootstrapperPath = Join-Path $env:TEMP "MicrosoftEdgeWebview2Setup.exe"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Write-Step "Downloading MicrosoftEdgeWebview2Setup.exe..."
+        try {
+            Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $BootstrapperPath -UseBasicParsing
+        } catch {
+            Write-WarnMsg "Failed to download WebView2 setup: $($_.Exception.Message)"
+        }
+    }
+
+    if (Test-Path $BootstrapperPath) {
+        Write-Step "Running WebView2 installer..."
+        $installProc = Start-Process -FilePath $BootstrapperPath -ArgumentList "/silent /install" -Wait -PassThru
+        if ($installProc.ExitCode -eq 0 -or (Test-WebView2Installed)) {
+            Write-Success "Microsoft Edge WebView2 Runtime installed successfully!"
+        } else {
+            Write-WarnMsg "Silent install exited with code $($installProc.ExitCode). Launching interactive setup..."
+            Start-Process -FilePath $BootstrapperPath -Wait
+        }
+    }
+} else {
+    Write-Success "Microsoft Edge WebView2 Runtime is already installed."
+}
+
+# 5. Create Shortcuts (Desktop & Start Menu)
 Write-Step "Creating Desktop and Start Menu shortcuts..."
 
 $WshShell = New-Object -ComObject WScript.Shell

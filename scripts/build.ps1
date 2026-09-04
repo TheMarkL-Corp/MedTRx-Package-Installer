@@ -101,6 +101,17 @@ if (Test-Path $ErrorHtmlSource) {
     Copy-Item $ErrorHtmlSource -Destination (Join-Path $DistDir "ErrorPage.html") -Force
 }
 
+# Download MicrosoftEdgeWebview2Setup.exe Evergreen Bootstrapper
+$BootstrapperCache = Join-Path $CacheDir "MicrosoftEdgeWebview2Setup.exe"
+if (-not (Test-Path $BootstrapperCache)) {
+    Write-Host "[*] Downloading Microsoft Edge WebView2 Evergreen Bootstrapper..." -ForegroundColor Yellow
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $BootstrapperCache -UseBasicParsing
+}
+if (Test-Path $BootstrapperCache) {
+    Copy-Item $BootstrapperCache -Destination (Join-Path $DistDir "MicrosoftEdgeWebview2Setup.exe") -Force
+}
+
 Copy-Item (Join-Path $ScriptDir "install.bat") -Destination (Join-Path $DistDir "install.bat") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $ScriptDir "install.ps1") -Destination (Join-Path $DistDir "install.ps1") -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $ScriptDir "uninstall.bat") -Destination (Join-Path $DistDir "uninstall.bat") -Force -ErrorAction SilentlyContinue

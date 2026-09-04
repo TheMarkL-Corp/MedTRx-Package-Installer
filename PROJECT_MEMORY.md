@@ -132,6 +132,13 @@ The build engine (`scripts\build.ps1` / `scripts\build.bat`) operates with **zer
 ### Taskbar Pinning Note:
 Windows 10/11 deprecates programmatic verb execution for taskbar pinning to prevent unauthorized adware pinning. `install.ps1` attempts the shell verb automatically; in environments where Windows 11 blocks the verb, the shortcut and executable have an embedded `AppUserModelID`, allowing one-click manual pinning from the Desktop icon or running window with persistent grouping.
 
+### WebView2 Evergreen Runtime Auto-Installation:
+On Windows 10 LTSC, LTSB, or embedded medical cart environments where WebView2 is not pre-installed:
+- Both `install.bat` / `install.ps1` and `MedTRx.exe` automatically check the Windows registry for `Microsoft.EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`.
+- If missing, `install.bat` automatically runs `MicrosoftEdgeWebview2Setup.exe /silent /install`.
+- If launched portably, `MedTRx.exe` detects the missing runtime, prompts the clinician/user with a one-click dialog, automatically installs `MicrosoftEdgeWebview2Setup.exe`, and restarts itself cleanly.
+- `MicrosoftEdgeWebview2Setup.exe` (1.78 MB) is bundled directly in the distribution and release ZIP for zero-friction offline cart setups.
+
 ---
 
 ## 7. Replacing `logo.ico`

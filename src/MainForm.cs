@@ -119,12 +119,107 @@ namespace MedTRx
             }
             catch (Exception ex)
             {
+                HandleWebView2InitFailure(ex);
+            }
+        }
+
+        private void HandleWebView2InitFailure(Exception ex)
+        {
+            string msg = ex.ToString();
+            bool isMissingRuntime = msg.IndexOf("WebView2RuntimeNotFoundException", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    msg.IndexOf("Couldn't find a compatible Webview2 Runtime", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    msg.IndexOf("WebView2", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (isMissingRuntime)
+            {
+                DialogResult result = MessageBox.Show(
+                    "Microsoft Edge WebView2 Evergreen Runtime is required to run MedTRx, but was not found on this computer.\n\n" +
+                    "Would you like MedTRx to automatically install it now?",
+                    "Microsoft Edge WebView2 Required",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question
+                );
+
+                if (result == DialogResult.Yes)
+                {
+                    TryInstallWebView2AndRestart();
+                    return;
+                }
+                else
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
+                    }
+                    catch { }
+                }
+            }
+            else
+            {
                 MessageBox.Show(
                     "Error initializing WebView2 runtime: " + ex.Message + "\n\nPlease ensure Microsoft Edge WebView2 Evergreen Runtime is installed.",
                     "WebView2 Initialization Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error
                 );
+            }
+        }
+
+        private void TryInstallWebView2AndRestart()
+        {
+            try
+            {
+                this.Cursor = Cursors.WaitCursor;
+                string setupExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MicrosoftEdgeWebview2Setup.exe");
+                if (!File.Exists(setupExe))
+                {
+                    setupExe = Path.Combine(Path.GetTempPath(), "MicrosoftEdgeWebview2Setup.exe");
+                    System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)3072;
+                    using (System.Net.WebClient client = new System.Net.WebClient())
+                    {
+                        client.DownloadFile("https://go.microsoft.com/fwlink/p/?LinkId=2124703", setupExe);
+                    }
+                }
+
+                if (File.Exists(setupExe))
+                {
+                    System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo();
+                    startInfo.FileName = setupExe;
+                    startInfo.Arguments = "/silent /install";
+                    startInfo.UseShellExecute = true;
+
+                    System.Diagnostics.Process proc = System.Diagnostics.Process.Start(startInfo);
+                    if (proc != null)
+                    {
+                        proc.WaitForExit();
+                    }
+
+                    this.Cursor = Cursors.Default;
+                    MessageBox.Show(
+                        "Microsoft Edge WebView2 Runtime installation completed! MedTRx will now restart.",
+                        "Installation Complete",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                    Application.Restart();
+                    Environment.Exit(0);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                this.Cursor = Cursors.Default;
+                MessageBox.Show(
+                    "Could not automatically install WebView2: " + ex.Message + "\n\nOpening Microsoft download page in browser...",
+                    "Installation Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                try
+                {
+                    System.Diagnostics.Process.Start("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
+                }
+                catch { }
             }
         }
 

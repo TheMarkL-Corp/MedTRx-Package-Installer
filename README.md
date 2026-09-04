@@ -8,8 +8,9 @@ Official lightweight native Windows desktop application and installer for **MedT
 
 ## Highlights
 
-- **Ultra-lightweight:** ~48 KB native executable, <1 MB total portable distribution.
+- **Ultra-lightweight:** ~50 KB native executable, ~2 MB total portable distribution.
 - **Embedded WebView2:** Powered by Microsoft Edge WebView2 Evergreen Runtime.
+- **Auto-Installs WebView2:** Automatically detects missing WebView2 on fresh/LTSC Windows machines and installs it seamlessly.
 - **Dedicated Profile:** Isolated user session and cookie storage (`%LOCALAPPDATA%\MedTRx\UserData`).
 - **Native Window Modes:** Standard native title bar, Minimize, Maximize, Close, plus `F11` toggle for borderless kiosk/fullscreen mode.
 - **Offline Resilient:** Hospital-grade connection failure screen with automatic and manual Retry.
