@@ -60,6 +60,7 @@ This will:
 - Copy the application to `%LOCALAPPDATA%\Programs\MedTRx` (no Admin rights required).
 - Place a **MedTRx** shortcut on your **Desktop**.
 - Add **MedTRx** to your **Start Menu**.
+- Copy shortcut to **Startup** (`shell:common startup` or user startup) so MedTRx launches automatically with Windows.
 
 ---
 

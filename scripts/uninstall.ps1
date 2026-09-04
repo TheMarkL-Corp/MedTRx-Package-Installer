@@ -46,6 +46,21 @@ if (Test-Path $StartMenuShortcut) {
     Write-Success "Removed Start Menu shortcut."
 }
 
+# Startup Shortcuts
+$CommonStartupShortcut = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartup)) "MedTRx.lnk"
+if (Test-Path $CommonStartupShortcut) {
+    try {
+        Remove-Item $CommonStartupShortcut -Force
+        Write-Success "Removed Common Startup shortcut."
+    } catch { }
+}
+
+$UserStartupShortcut = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::Startup)) "MedTRx.lnk"
+if (Test-Path $UserStartupShortcut) {
+    Remove-Item $UserStartupShortcut -Force
+    Write-Success "Removed User Startup shortcut."
+}
+
 # 3. Remove Registry Entry
 Write-Step "Removing registry uninstall entry..."
 $UninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MedTRx"

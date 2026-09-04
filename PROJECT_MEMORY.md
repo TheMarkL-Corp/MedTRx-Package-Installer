@@ -128,6 +128,7 @@ The build engine (`scripts\build.ps1` / `scripts\build.bat`) operates with **zer
 - **Target Folder:** `%LOCALAPPDATA%\Programs\MedTRx` (no Administrator or UAC permissions required).
 - **Desktop Shortcut:** `%USERPROFILE%\Desktop\MedTRx.lnk` pointing to `MedTRx.exe` with `logo.ico`.
 - **Start Menu:** `%APPDATA%\Microsoft\Windows\Start Menu\Programs\MedTRx.lnk`.
+- **Startup Shortcut:** Copies Desktop shortcut to `shell:common startup` (`%ProgramData%\Microsoft\Windows\Start Menu\Programs\Startup`) for all users, or falls back seamlessly to current user's Startup folder (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`).
 - **Add/Remove Programs:** Registered under `HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MedTRx` for native Windows uninstallation.
 - **Data & Cache:** Persistent profile data in `%LOCALAPPDATA%\MedTRx\UserData`.
 - **Logs:** Handled exceptions and crashes recorded in `%LOCALAPPDATA%\MedTRx\crash.log`.

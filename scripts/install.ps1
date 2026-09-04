@@ -201,6 +201,33 @@ $StartMenuShortcut = Join-Path $StartMenuDir "MedTRx.lnk"
 Create-AppShortcut $StartMenuShortcut
 Write-Success "Start Menu shortcut created: $StartMenuShortcut"
 
+# Startup Shortcut (shell:common startup / All Users)
+Write-Step "Configuring automatic startup shortcut (shell:common startup)..."
+$CommonStartupDir = [Environment]::GetFolderPath([Environment+SpecialFolder]::CommonStartup)
+$StartupShortcutPlaced = $false
+
+if (-not [string]::IsNullOrEmpty($CommonStartupDir) -and (Test-Path $CommonStartupDir)) {
+    try {
+        $CommonStartupShortcut = Join-Path $CommonStartupDir "MedTRx.lnk"
+        Copy-Item -Path $DesktopShortcut -Destination $CommonStartupShortcut -Force
+        Write-Success "Startup shortcut installed to shell:common startup: $CommonStartupShortcut"
+        $StartupShortcutPlaced = $true
+    } catch {
+        Write-WarnMsg "Direct write to shell:common startup requires elevated permissions: $($_.Exception.Message)"
+    }
+}
+
+# Fallback to current user's Startup folder if CommonStartup cannot be written
+if (-not $StartupShortcutPlaced) {
+    $UserStartupDir = [Environment]::GetFolderPath([Environment+SpecialFolder]::Startup)
+    if (-not [string]::IsNullOrEmpty($UserStartupDir)) {
+        if (-not (Test-Path $UserStartupDir)) { New-Item -ItemType Directory -Path $UserStartupDir -Force | Out-Null }
+        $UserStartupShortcut = Join-Path $UserStartupDir "MedTRx.lnk"
+        Copy-Item -Path $DesktopShortcut -Destination $UserStartupShortcut -Force
+        Write-Success "Startup shortcut installed to User Startup: $UserStartupShortcut"
+    }
+}
+
 # 5. Register in Windows Add/Remove Programs (HKCU)
 Write-Step "Registering in Windows Installed Apps..."
 $UninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\MedTRx"
