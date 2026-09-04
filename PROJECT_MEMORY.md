@@ -108,14 +108,17 @@ The configuration file is formatted as standard JSON. It can be placed directly 
 
 ---
 
-## 5. Build Engine Mechanics
+## 5. Build Engine Mechanics & Automatic Version Stamping
 
 The build engine (`scripts\build.ps1` / `scripts\build.bat`) operates with **zero external prerequisites**:
 1. Checks for Windows built-in `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`.
-2. Downloads `Microsoft.Web.WebView2` NuGet package from nuget.org (cached locally in `.cache/`).
-3. Extracts `Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll`, and native `WebView2Loader.dll`.
-4. Compiles `src\Program.cs`, `src\MainForm.cs`, `src\SettingsForm.cs`, and `src\ConfigManager.cs` via a generated compiler response file (`build.rsp`) embedding `assets\logo.ico` into the executable's Win32 resources.
-5. Assembles all dependencies into `dist/`.
+2. Reads the single-source-of-truth version from `VERSION` (e.g., `1.0.2`).
+3. Automatically generates/synchronizes `src\AssemblyInfo.cs` with `AssemblyVersion`, `AssemblyFileVersion` (`1.0.2.0`), and `AssemblyInformationalVersion` (`1.0.2`). This guarantees that the Windows binary properties (`Product version` and `File version` in `.exe`) always match the release package version.
+4. Downloads `Microsoft.Web.WebView2` NuGet package from nuget.org (cached locally in `.cache/`).
+5. Extracts `Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll`, and native `WebView2Loader.dll`.
+6. Compiles `src\AssemblyInfo.cs`, `src\Program.cs`, `src\MainForm.cs`, `src\PdfViewerForm.cs`, `src\SettingsForm.cs`, and `src\ConfigManager.cs` via a generated compiler response file (`build.rsp`) embedding `assets\logo.ico` into the executable's Win32 resources.
+7. Assembles all dependencies into `dist/`.
+8. `scripts\install.ps1` automatically queries `(Get-Item MedTRx.exe).VersionInfo.ProductVersion` to stamp the exact version into Windows Settings / Add & Remove Programs registry (`DisplayVersion`).
 
 ---
 

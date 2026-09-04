@@ -8,21 +8,27 @@ param(
     [string]$Version = "1.0.0"
 )
 
-$ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ProjectDir = Split-Path -Parent $ScriptDir
 $DistDir = Join-Path $ProjectDir "dist"
 $ReleaseDir = Join-Path $ProjectDir "release"
 
+# Read version from VERSION file if default or not supplied
+$VersionFile = Join-Path $ProjectDir "VERSION"
+if (Test-Path $VersionFile) {
+    $fileVer = (Get-Content $VersionFile -Raw).Trim()
+    if ($PSBoundParameters.ContainsKey('Version') -eq $false) {
+        $Version = $fileVer
+    }
+}
+
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host "  MedTRx Release Packager v$Version              " -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
 
-# 1. Verify / Trigger Build if needed
-if (-not (Test-Path (Join-Path $DistDir "MedTRx.exe"))) {
-    Write-Host "[*] MedTRx.exe not found in dist. Triggering build..." -ForegroundColor Yellow
-    & (Join-Path $ScriptDir "build.ps1")
-}
+# 1. Verify / Trigger Build to ensure binary has matching version
+Write-Host "[*] Compiling MedTRx.exe with version $Version..." -ForegroundColor Yellow
+& (Join-Path $ScriptDir "build.ps1")
 
 # 2. Ensure release directory exists
 if (-not (Test-Path $ReleaseDir)) {

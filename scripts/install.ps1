@@ -208,15 +208,24 @@ try {
     if (-not (Test-Path $UninstallKey)) {
         New-Item -Path $UninstallKey -Force | Out-Null
     }
+    # Dynamically extract DisplayVersion from executable
+    $AppDisplayVer = "1.0.2"
+    if (Test-Path $TargetExe) {
+        $exeVer = (Get-Item $TargetExe).VersionInfo.ProductVersion
+        if (-not [string]::IsNullOrEmpty($exeVer) -and $exeVer -ne "0.0.0.0") {
+            $AppDisplayVer = $exeVer
+        }
+    }
+
     Set-ItemProperty -Path $UninstallKey -Name "DisplayName" -Value "MedTRx Application"
     Set-ItemProperty -Path $UninstallKey -Name "DisplayIcon" -Value "$IconPath,0"
-    Set-ItemProperty -Path $UninstallKey -Name "DisplayVersion" -Value "1.0.0"
+    Set-ItemProperty -Path $UninstallKey -Name "DisplayVersion" -Value $AppDisplayVer
     Set-ItemProperty -Path $UninstallKey -Name "Publisher" -Value "MedTRx Healthcare Systems"
     Set-ItemProperty -Path $UninstallKey -Name "InstallLocation" -Value $InstallDir
     Set-ItemProperty -Path $UninstallKey -Name "UninstallString" -Value "`"$InstallDir\uninstall.bat`""
     Set-ItemProperty -Path $UninstallKey -Name "NoModify" -Value 1 -Type DWord
     Set-ItemProperty -Path $UninstallKey -Name "NoRepair" -Value 1 -Type DWord
-    Write-Success "Registered in Windows Settings / Installed Apps."
+    Write-Success "Registered in Windows Settings / Installed Apps (Version $AppDisplayVer)."
 } catch {
     Write-WarnMsg "Could not write registry uninstall key (non-fatal)."
 }

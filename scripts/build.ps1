@@ -30,9 +30,49 @@ if (-not (Test-Path $CscPath)) {
 }
 Write-Host "[+] Found C# Compiler: $CscPath" -ForegroundColor Green
 
-# 2. Prepare Directories
+# 2. Determine App Version from VERSION file
+$VersionFile = Join-Path $ProjectDir "VERSION"
+$AppVersion = "1.0.2"
+if (Test-Path $VersionFile) {
+    $AppVersion = (Get-Content $VersionFile -Raw).Trim()
+}
+Write-Host "[+] MedTRx Application Version: $AppVersion" -ForegroundColor Green
+
+# 3. Prepare Directories
 if (-not (Test-Path $DistDir)) { New-Item -ItemType Directory -Path $DistDir -Force | Out-Null }
 if (-not (Test-Path $CacheDir)) { New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null }
+
+# 4. Generate AssemblyInfo.cs with accurate FileVersion & ProductVersion
+$FourPartVersion = $AppVersion
+if ($FourPartVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+    $parts = $FourPartVersion.Split('.')
+    while ($parts.Count -lt 4) { $parts += "0" }
+    $FourPartVersion = ($parts[0..3] -join '.')
+}
+
+$AssemblyInfoContent = @"
+using System.Reflection;
+using System.Runtime.InteropServices;
+
+[assembly: AssemblyTitle("MedTRx")]
+[assembly: AssemblyDescription("MedTRx Healthcare Systems Desktop Application")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("MedTRx Healthcare Systems")]
+[assembly: AssemblyProduct("MedTRx")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 MedTRx Healthcare Systems")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCulture("")]
+
+[assembly: ComVisible(false)]
+
+[assembly: AssemblyVersion("$FourPartVersion")]
+[assembly: AssemblyFileVersion("$FourPartVersion")]
+[assembly: AssemblyInformationalVersion("$AppVersion")]
+"@
+
+$AssemblyInfoPath = Join-Path $ProjectDir "src\AssemblyInfo.cs"
+[System.IO.File]::WriteAllText($AssemblyInfoPath, $AssemblyInfoContent, [System.Text.Encoding]::UTF8)
+
 
 # 3. Ensure Microsoft.Web.WebView2 Package is Downloaded & Extracted
 $NugetPackagePath = Join-Path $CacheDir "Microsoft.Web.WebView2.$PackageVersion.nupkg"
@@ -140,6 +180,7 @@ $RspLines = @(
     "/r:`"$(Join-Path $DistDir 'Microsoft.Web.WebView2.Core.dll')`"",
     "/r:`"$(Join-Path $DistDir 'Microsoft.Web.WebView2.WinForms.dll')`"",
     "/out:`"$OutputExe`"",
+    "`"$(Join-Path $ProjectDir 'src\AssemblyInfo.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\Program.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\MainForm.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\PdfViewerForm.cs')`"",

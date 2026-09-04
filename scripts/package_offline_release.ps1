@@ -11,7 +11,6 @@ param(
     [string]$Architecture = "x64"
 )
 
-$ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $ProjectDir = Split-Path -Parent $ScriptDir
 $DistDir = Join-Path $ProjectDir "dist"
@@ -19,15 +18,22 @@ $CacheDir = Join-Path $ProjectDir ".cache"
 $ReleaseDir = Join-Path $ProjectDir "release"
 $OfflineDistDir = Join-Path $ProjectDir "dist-offline"
 
+# Read version from VERSION file if default or not supplied
+$VersionFile = Join-Path $ProjectDir "VERSION"
+if (Test-Path $VersionFile) {
+    $fileVer = (Get-Content $VersionFile -Raw).Trim()
+    if ($PSBoundParameters.ContainsKey('Version') -eq $false) {
+        $Version = $fileVer
+    }
+}
+
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host "  MedTRx 100% Offline Bundle Packager v$Version  " -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
 
-# 1. Ensure binary is compiled
-if (-not (Test-Path (Join-Path $DistDir "MedTRx.exe"))) {
-    Write-Host "[*] Compiling MedTRx..." -ForegroundColor Yellow
-    & (Join-Path $ScriptDir "build.ps1")
-}
+# 1. Compile MedTRx with accurate stamped version
+Write-Host "[*] Compiling MedTRx with version $Version..." -ForegroundColor Yellow
+& (Join-Path $ScriptDir "build.ps1")
 
 if (-not (Test-Path $CacheDir)) { New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null }
 if (-not (Test-Path $ReleaseDir)) { New-Item -ItemType Directory -Path $ReleaseDir -Force | Out-Null }
