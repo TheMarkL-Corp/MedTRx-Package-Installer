@@ -142,6 +142,7 @@ $RspLines = @(
     "/out:`"$OutputExe`"",
     "`"$(Join-Path $ProjectDir 'src\Program.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\MainForm.cs')`"",
+    "`"$(Join-Path $ProjectDir 'src\PdfViewerForm.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\SettingsForm.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\ConfigManager.cs')`""
 )

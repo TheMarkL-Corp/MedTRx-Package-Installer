@@ -6,5 +6,8 @@
   "enableDevTools": false,
   "enableNavigationKeys": true,
   "zoomFactor": 1.0,
-  "allowExternalLinks": true
+  "allowExternalLinks": true,
+  "turboMode": true,
+  "autoOpenPdf": true,
+  "pdfViewerMode": "embedded"
 }

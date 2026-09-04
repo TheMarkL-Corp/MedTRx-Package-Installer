@@ -18,6 +18,7 @@ namespace MedTRx
         private Rectangle previousBounds;
         private string appDataPath;
         private bool isErrorState = false;
+        private ProgressBar topProgressBar;
 
         public MainForm(AppConfig initialConfig)
         {
@@ -38,6 +39,15 @@ namespace MedTRx
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = Color.White;
             this.KeyPreview = true;
+
+            // Sleek Top Loading Indicator (3px)
+            topProgressBar = new ProgressBar();
+            topProgressBar.Dock = DockStyle.Top;
+            topProgressBar.Height = 3;
+            topProgressBar.Style = ProgressBarStyle.Marquee;
+            topProgressBar.MarqueeAnimationSpeed = 30;
+            topProgressBar.Visible = false;
+            this.Controls.Add(topProgressBar);
 
             // Load Application Icon
             try
@@ -82,8 +92,22 @@ namespace MedTRx
                 // Check for bundled Fixed Version runtime (100% offline mode)
                 string browserExecutableFolder = FindBundledRuntime();
 
-                // CoreWebView2Environment with isolated user data folder
-                var env = await CoreWebView2Environment.CreateAsync(browserExecutableFolder, userDataFolder);
+                // Turbocharger Options
+                CoreWebView2EnvironmentOptions options = null;
+                if (config.turboMode)
+                {
+                    options = new CoreWebView2EnvironmentOptions();
+                    options.AdditionalBrowserArguments = 
+                        "--enable-gpu-rasterization " +
+                        "--enable-zero-copy " +
+                        "--ignore-gpu-blocklist " +
+                        "--enable-features=CanvasOopRasterization,ParallelDownloading,Prerender2 " +
+                        "--disk-cache-size=209715200 " +
+                        "--disable-background-timer-throttling";
+                }
+
+                // CoreWebView2Environment with isolated user data folder and optional turbo args
+                var env = await CoreWebView2Environment.CreateAsync(browserExecutableFolder, userDataFolder, options);
                 await webView.EnsureCoreWebView2Async(env);
 
                 // Configure WebView2 Settings
@@ -93,11 +117,31 @@ namespace MedTRx
                 settings.IsZoomControlEnabled = true;
                 settings.AreDefaultContextMenusEnabled = true;
 
+                // Turbocharger DOM acceleration injection
+                try
+                {
+                    await webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                        "(function() {" +
+                        "  var style = document.createElement('style');" +
+                        "  style.textContent = '* { -webkit-font-smoothing: antialiased; } img, svg { content-visibility: auto; }';" +
+                        "  if (document.head) { document.head.appendChild(style); }" +
+                        "  else { document.addEventListener('DOMContentLoaded', function() { if (document.head) document.head.appendChild(style); }); }" +
+                        "})();"
+                    );
+                }
+                catch { }
+
                 // Set zoom factor
                 if (config.zoomFactor > 0.1 && config.zoomFactor < 5.0)
                 {
                     webView.ZoomFactor = config.zoomFactor;
                 }
+
+                // Top Loading Indicator
+                webView.NavigationStarting += (s, e) =>
+                {
+                    if (topProgressBar != null) topProgressBar.Visible = true;
+                };
 
                 // Title update from webpage
                 webView.CoreWebView2.DocumentTitleChanged += (s, e) =>
@@ -116,6 +160,9 @@ namespace MedTRx
 
                 // Handle popup links / external links
                 webView.CoreWebView2.NewWindowRequested += new EventHandler<CoreWebView2NewWindowRequestedEventArgs>(CoreWebView2_NewWindowRequested);
+
+                // Handle PDF and file downloads
+                webView.CoreWebView2.DownloadStarting += new EventHandler<CoreWebView2DownloadStartingEventArgs>(CoreWebView2_DownloadStarting);
 
                 // Navigate to Target URL
                 NavigateToTargetUrl();
@@ -281,6 +328,11 @@ namespace MedTRx
 
         private void WebView_NavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
         {
+            if (topProgressBar != null)
+            {
+                topProgressBar.Visible = false;
+            }
+
             if (!e.IsSuccess)
             {
                 isErrorState = true;
@@ -355,21 +407,126 @@ namespace MedTRx
 
         private void CoreWebView2_NewWindowRequested(object sender, CoreWebView2NewWindowRequestedEventArgs e)
         {
-            e.Handled = true;
+            string uri = e.Uri != null ? e.Uri.Trim() : "";
+
+            // 1. Guard against blank / about: protocols - NEVER call Process.Start on about: links
+            if (string.IsNullOrEmpty(uri) || 
+                uri.StartsWith("about:", StringComparison.OrdinalIgnoreCase) || 
+                uri.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
+            {
+                // Let WebView2 manage internal popup/blank window without triggering Windows Shell error
+                return;
+            }
+
+            // 2. Direct PDF links or requests
+            if (uri.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) || 
+                uri.IndexOf(".pdf?", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                uri.IndexOf("/pdf", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                e.Handled = true;
+                OpenPdfViewer(uri);
+                return;
+            }
+
+            // 3. Blob / Data URLs: handle internally within WebView2
+            if (uri.StartsWith("blob:", StringComparison.OrdinalIgnoreCase) || 
+                uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                e.Handled = true;
+                if (webView != null && webView.CoreWebView2 != null)
+                {
+                    webView.CoreWebView2.Navigate(uri);
+                }
+                return;
+            }
+
+            // 4. External HTTP/HTTPS links
             if (config.allowExternalLinks)
             {
+                e.Handled = true;
                 try
                 {
-                    System.Diagnostics.Process.Start(e.Uri);
+                    System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo(uri);
+                    psi.UseShellExecute = true;
+                    System.Diagnostics.Process.Start(psi);
                 }
                 catch
                 {
-                    webView.CoreWebView2.Navigate(e.Uri);
+                    if (webView != null && webView.CoreWebView2 != null)
+                    {
+                        webView.CoreWebView2.Navigate(uri);
+                    }
                 }
             }
             else
             {
-                webView.CoreWebView2.Navigate(e.Uri);
+                e.Handled = true;
+                if (webView != null && webView.CoreWebView2 != null)
+                {
+                    webView.CoreWebView2.Navigate(uri);
+                }
+            }
+        }
+
+        private void CoreWebView2_DownloadStarting(object sender, CoreWebView2DownloadStartingEventArgs e)
+        {
+            string targetFile = e.ResultFilePath;
+            if (string.IsNullOrEmpty(targetFile)) return;
+
+            e.DownloadOperation.StateChanged += (s, args) =>
+            {
+                if (e.DownloadOperation.State == CoreWebView2DownloadState.Completed)
+                {
+                    if (config.autoOpenPdf && 
+                        targetFile.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) && 
+                        File.Exists(targetFile))
+                    {
+                        this.BeginInvoke(new Action(() =>
+                        {
+                            OpenPdfViewer(targetFile);
+                        }));
+                    }
+                }
+            };
+        }
+
+        public void OpenPdfViewer(string pathOrUrl)
+        {
+            try
+            {
+                string mode = !string.IsNullOrEmpty(config.pdfViewerMode) ? config.pdfViewerMode.ToLowerInvariant() : "embedded";
+                
+                if (mode == "chrome")
+                {
+                    try
+                    {
+                        System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo("chrome.exe", "\"" + pathOrUrl + "\"");
+                        psi.UseShellExecute = true;
+                        System.Diagnostics.Process.Start(psi);
+                        return;
+                    }
+                    catch { } // Fallback to embedded if chrome is not found
+                }
+                else if (mode == "system")
+                {
+                    try
+                    {
+                        System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo(pathOrUrl);
+                        psi.UseShellExecute = true;
+                        System.Diagnostics.Process.Start(psi);
+                        return;
+                    }
+                    catch { }
+                }
+
+                // Default / Embedded: Launch dedicated In-App Chromium PDF Viewer
+                string browserFolder = FindBundledRuntime();
+                PdfViewerForm viewer = new PdfViewerForm(pathOrUrl, browserFolder);
+                viewer.Show(this);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not open PDF viewer: " + ex.Message, "PDF Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

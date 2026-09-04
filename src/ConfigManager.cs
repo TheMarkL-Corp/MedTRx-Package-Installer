@@ -14,6 +14,9 @@ namespace MedTRx
         public bool enableNavigationKeys { get; set; }
         public double zoomFactor { get; set; }
         public bool allowExternalLinks { get; set; }
+        public bool turboMode { get; set; }
+        public bool autoOpenPdf { get; set; }
+        public string pdfViewerMode { get; set; }
 
         public AppConfig()
         {
@@ -25,6 +28,9 @@ namespace MedTRx
             enableNavigationKeys = true;
             zoomFactor = 1.0;
             allowExternalLinks = true;
+            turboMode = true;
+            autoOpenPdf = true;
+            pdfViewerMode = "embedded";
         }
     }
 
