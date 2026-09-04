@@ -79,8 +79,11 @@ namespace MedTRx
                     Directory.CreateDirectory(userDataFolder);
                 }
 
+                // Check for bundled Fixed Version runtime (100% offline mode)
+                string browserExecutableFolder = FindBundledRuntime();
+
                 // CoreWebView2Environment with isolated user data folder
-                var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
+                var env = await CoreWebView2Environment.CreateAsync(browserExecutableFolder, userDataFolder);
                 await webView.EnsureCoreWebView2Async(env);
 
                 // Configure WebView2 Settings
@@ -221,6 +224,40 @@ namespace MedTRx
                 }
                 catch { }
             }
+        }
+
+        private string FindBundledRuntime()
+        {
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string[] candidates = new string[]
+                {
+                    Path.Combine(baseDir, "runtime"),
+                    Path.Combine(baseDir, "FixedVersionRuntime"),
+                    Path.Combine(baseDir, "WebView2Runtime")
+                };
+
+                foreach (string dir in candidates)
+                {
+                    if (Directory.Exists(dir) && File.Exists(Path.Combine(dir, "msedgewebview2.exe")))
+                    {
+                        return dir;
+                    }
+                }
+
+                // Check 1-level subdirectories (e.g. if extracted with version name like 152.0.4191.62)
+                foreach (string sub in Directory.GetDirectories(baseDir))
+                {
+                    if (File.Exists(Path.Combine(sub, "msedgewebview2.exe")))
+                    {
+                        return sub;
+                    }
+                }
+            }
+            catch { }
+
+            return null; // Fallback to system-wide Evergreen runtime
         }
 
         private void NavigateToTargetUrl()

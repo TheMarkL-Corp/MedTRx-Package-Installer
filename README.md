@@ -20,6 +20,22 @@ Official lightweight native Windows desktop application and installer for **MedT
 
 ---
 
+## Deployment Packages
+
+Choose the package that fits your hospital cart environment:
+
+1. **100% Offline Air-Gapped Bundle (`MedTRx-v1.0.1-100Percent-Offline-Bundle.zip`):**
+   - Contains the complete **Microsoft WebView2 Fixed Version Runtime** pre-extracted in `runtime/`.
+   - **Zero installation required, zero internet access needed, zero admin rights.**
+   - Ideal for isolated hospital clinical subnets, AMiS carts, or secure hospital wards.
+   - Simply extract and run `install.bat` (or run `MedTRx.exe` directly).
+
+2. **Standard Online Package (`MedTRx-v1.0.1-Portable.zip`):**
+   - Lightweight (~2.1 MB) package containing the app and the official `MicrosoftEdgeWebview2Setup.exe` bootstrapper.
+   - Automatically installs the latest runtime if internet is available.
+
+---
+
 ## Quick Start
 
 ### 1. Configure the Target URL

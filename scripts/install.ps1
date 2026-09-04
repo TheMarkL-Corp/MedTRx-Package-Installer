@@ -99,10 +99,18 @@ foreach ($file in $FilesToCopy) {
     }
 }
 
-# Copy runtimes directory if present
+# Copy runtimes directory if present (SDK native loader)
 $RuntimesSrc = Join-Path $SourceDir "runtimes"
 if (Test-Path $RuntimesSrc) {
     Copy-Item $RuntimesSrc -Destination (Join-Path $InstallDir "runtimes") -Recurse -Force
+}
+
+# Copy bundled 100% offline Fixed Version runtime if present
+$OfflineRuntimeSrc = Join-Path $SourceDir "runtime"
+if (Test-Path $OfflineRuntimeSrc) {
+    Write-Step "Deploying bundled 100% offline WebView2 runtime folder..."
+    Copy-Item $OfflineRuntimeSrc -Destination (Join-Path $InstallDir "runtime") -Recurse -Force
+    Write-Success "Offline runtime deployed to $InstallDir\runtime."
 }
 
 # Copy config.json only if destination does not already have a customized config
@@ -122,10 +130,15 @@ if (Test-Path $UninstallBat) { Copy-Item $UninstallBat -Destination (Join-Path $
 if (Test-Path $UninstallPs1) { Copy-Item $UninstallPs1 -Destination (Join-Path $InstallDir "uninstall.ps1") -Force }
 
 # 4. Check and Install Microsoft Edge WebView2 Runtime if missing
-Write-Step "Checking Microsoft Edge WebView2 Runtime..."
-if (-not (Test-WebView2Installed)) {
-    Write-WarnMsg "Microsoft Edge WebView2 Runtime was not detected on this system."
-    Write-Step "Installing Microsoft Edge WebView2 Evergreen Runtime..."
+$HasBundledOffline = (Test-Path (Join-Path $InstallDir "runtime\msedgewebview2.exe")) -or (Test-Path (Join-Path $SourceDir "runtime\msedgewebview2.exe"))
+
+if ($HasBundledOffline) {
+    Write-Success "Bundled 100% offline WebView2 Runtime is detected. No system-wide installation required!"
+} else {
+    Write-Step "Checking Microsoft Edge WebView2 Runtime..."
+    if (-not (Test-WebView2Installed)) {
+        Write-WarnMsg "Microsoft Edge WebView2 Runtime was not detected on this system."
+        Write-Step "Installing Microsoft Edge WebView2 Evergreen Runtime..."
     
     $BootstrapperPath = Join-Path $InstallDir "MicrosoftEdgeWebview2Setup.exe"
     if (-not (Test-Path $BootstrapperPath)) {
@@ -154,6 +167,7 @@ if (-not (Test-WebView2Installed)) {
     }
 } else {
     Write-Success "Microsoft Edge WebView2 Runtime is already installed."
+}
 }
 
 # 5. Create Shortcuts (Desktop & Start Menu)

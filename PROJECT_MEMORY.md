@@ -139,6 +139,14 @@ On Windows 10 LTSC, LTSB, or embedded medical cart environments where WebView2 i
 - If launched portably, `MedTRx.exe` detects the missing runtime, prompts the clinician/user with a one-click dialog, automatically installs `MicrosoftEdgeWebview2Setup.exe`, and restarts itself cleanly.
 - `MicrosoftEdgeWebview2Setup.exe` (1.78 MB) is bundled directly in the distribution and release ZIP for zero-friction offline cart setups.
 
+### 100% Offline Fixed-Version Runtime Bundle:
+For strictly air-gapped hospital subnets and medical carts with zero internet access:
+- Uses `scripts/package_offline_release.bat` / `scripts/package_offline_release.ps1` to query Microsoft's CDN API and download `Microsoft.WebView2.FixedVersionRuntime.<version>.x64.cab`.
+- Extracts the complete runtime into `runtime/` alongside `MedTRx.exe`.
+- `MainForm.cs` checks `FindBundledRuntime()`: when `runtime/msedgewebview2.exe` is present, it directly passes this folder to `CoreWebView2Environment.CreateAsync(browserExecutableFolder, ...)`.
+- Completely bypasses Windows registry lookup and system installation.
+- Works 100% offline with zero external dependencies.
+
 ---
 
 ## 7. Replacing `logo.ico`
