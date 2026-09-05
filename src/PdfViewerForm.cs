@@ -20,9 +20,15 @@ namespace MedTRx
         private Button btnClose;
 
         public PdfViewerForm(string filePathOrUrl, string browserExecutableFolder)
+            : this(filePathOrUrl, browserExecutableFolder, false)
+        {
+        }
+
+        public PdfViewerForm(string filePathOrUrl, string browserExecutableFolder, bool isTopMost)
         {
             this.pdfPath = filePathOrUrl;
             this.browserFolder = browserExecutableFolder;
+            this.TopMost = isTopMost;
             InitializeWindow();
             InitializeWebViewAsync();
         }

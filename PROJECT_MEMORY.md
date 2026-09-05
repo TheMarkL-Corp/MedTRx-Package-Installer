@@ -96,8 +96,8 @@ The configuration file is formatted as standard JSON. It can be placed directly 
 | `appName` | `string` | `"MedTRx"` | Name displayed in window title bar and taskbar. |
 | `startFullscreen` | `bool` | `false` | When `true`, opens immediately in borderless fullscreen/kiosk mode. |
 | `startMaximized` | `bool` | `true` | When `true`, opens in maximized windowed mode. |
-| `alwaysOnTop` | `bool` | `false` | When `true`, keeps MedTRx pinned on top of all Windows taskbars and other windows. |
-| `touchFullscreenSidebar` | `bool` | `true` | When `true`, displays a touch-friendly slide-out tab at the upper-right corner for keyboard-less fullscreen toggling and reloading. |
+| `alwaysOnTop` | `bool` | `false` | When `true`, keeps MedTRx pinned on top of all Windows taskbars and other windows. Child windows (PDF Viewer & Settings) automatically inherit TopMost priority above the main window. |
+| `touchFullscreenSidebar` | `bool` | `true` | When `true`, displays a covert, liquid frosted glass slide-out tab with touch vertical edge-dragging (repositionable at any height) and 1-touch fullscreen toggling. |
 | `enableDevTools` | `bool` | `false` | Enables `F12` Edge Chromium Developer Tools (set to `false` in production). |
 | `enableNavigationKeys` | `bool` | `true` | Enables `F5` / `Ctrl+R` page reload and browser navigation shortcuts. |
 | `zoomFactor` | `number` | `1.0` | Default UI zoom ratio (e.g. `1.1` for 110% magnification). |

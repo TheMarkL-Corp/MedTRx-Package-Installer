@@ -554,8 +554,11 @@ namespace MedTRx
 
                 // Default / Embedded: Launch dedicated In-App Chromium PDF Viewer
                 string browserFolder = FindBundledRuntime();
-                PdfViewerForm viewer = new PdfViewerForm(pathOrUrl, browserFolder);
+                PdfViewerForm viewer = new PdfViewerForm(pathOrUrl, browserFolder, this.TopMost);
+                viewer.Owner = this;
                 viewer.Show(this);
+                viewer.BringToFront();
+                viewer.Activate();
             }
             catch (Exception ex)
             {
@@ -665,6 +668,7 @@ namespace MedTRx
         {
             using (var settingsForm = new SettingsForm(config))
             {
+                settingsForm.TopMost = this.TopMost;
                 if (settingsForm.ShowDialog(this) == DialogResult.OK && settingsForm.Saved)
                 {
                     this.config = settingsForm.Config;
@@ -688,24 +692,50 @@ namespace MedTRx
 
     var isFullscreen = " + (startFullscreenState ? "true" : "false") + @";
     var isExpanded = false;
-    var side = 'right'; // Upper-right corner default position
+    var side = 'right'; // 'right' or 'left'
+    var topPos = 32;    // vertical pixels from top
     var autoHideTimer = null;
+    var isDragging = false;
+    var dragStartY = 0;
+    var initialTop = 0;
+    var hasMoved = false;
+
+    // Load saved position
+    try {
+        var saved = localStorage.getItem('medtrx_sidebar_cfg');
+        if (saved) {
+            var cfg = JSON.parse(saved);
+            if (cfg.side) side = cfg.side;
+            if (typeof cfg.top === 'number') topPos = cfg.top;
+        }
+    } catch(e) {}
+
+    function savePosition() {
+        try {
+            localStorage.setItem('medtrx_sidebar_cfg', JSON.stringify({ side: side, top: topPos }));
+        } catch(e) {}
+    }
 
     function createElements() {
         if (document.getElementById('medtrx-touch-container')) return;
 
         var host = document.createElement('div');
         host.id = 'medtrx-touch-container';
-        host.style.cssText = 'position:fixed; z-index:2147483647; font-family:Segoe UI, -apple-system, sans-serif; user-select:none; -webkit-user-select:none;';
 
         var style = document.createElement('style');
         style.textContent = `
             #medtrx-touch-container {
-                top: 24px;
+                position: fixed;
+                z-index: 2147483647;
+                font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                user-select: none;
+                -webkit-user-select: none;
                 right: 0px;
+                top: ` + topPos + `px;
                 display: flex;
                 align-items: flex-start;
-                transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+                transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+                touch-action: none;
             }
             #medtrx-touch-container.medtrx-left {
                 right: auto;
@@ -713,52 +743,79 @@ namespace MedTRx
                 flex-direction: row-reverse;
             }
             #medtrx-touch-container.medtrx-collapsed-right {
-                transform: translateX(180px);
+                transform: translateX(184px);
             }
             #medtrx-touch-container.medtrx-collapsed-left {
-                transform: translateX(-180px);
+                transform: translateX(-184px);
             }
-            #medtrx-touch-container.medtrx-dimmed {
-                opacity: 0.35;
+            #medtrx-touch-container.medtrx-dragging {
+                transition: none !important;
+                opacity: 0.95 !important;
             }
+            #medtrx-touch-container.medtrx-idle:not(:hover) {
+                opacity: 0.22;
+            }
+            #medtrx-touch-container:hover, #medtrx-touch-container:active {
+                opacity: 1 !important;
+            }
+
+            /* Liquid Frosted Glass Grab Tab */
             #medtrx-touch-tab {
-                width: 38px;
-                height: 56px;
-                background: linear-gradient(135deg, #0e7490, #0891b2);
-                color: #ffffff;
+                width: 26px;
+                height: 52px;
+                background: rgba(255, 255, 255, 0.2);
+                backdrop-filter: blur(20px) saturate(190%);
+                -webkit-backdrop-filter: blur(20px) saturate(190%);
+                border: 1px solid rgba(255, 255, 255, 0.35);
+                border-right: none;
                 border-radius: 12px 0 0 12px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                cursor: pointer;
-                box-shadow: -3px 4px 12px rgba(0,0,0,0.35);
-                font-size: 16px;
-                transition: transform 0.15s ease, background 0.15s ease;
-                touch-action: manipulation;
+                cursor: grab;
+                box-shadow: -4px 6px 20px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+                color: rgba(255, 255, 255, 0.92);
+                transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+                touch-action: none;
             }
             #medtrx-touch-container.medtrx-left #medtrx-touch-tab {
                 border-radius: 0 12px 12px 0;
-                box-shadow: 3px 4px 12px rgba(0,0,0,0.35);
+                border-left: none;
+                border-right: 1px solid rgba(255, 255, 255, 0.35);
+                box-shadow: 4px 6px 20px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.4);
             }
-            #medtrx-touch-tab:active {
-                transform: scale(0.95);
-                background: #06b6d4;
+            #medtrx-touch-tab:hover {
+                background: rgba(255, 255, 255, 0.3);
+                color: #ffffff;
             }
-            #medtrx-touch-tab-arrow {
-                font-size: 12px;
+            #medtrx-touch-tab:active, #medtrx-touch-container.medtrx-dragging #medtrx-touch-tab {
+                cursor: grabbing;
+                background: rgba(14, 116, 144, 0.45);
+                border-color: rgba(56, 189, 248, 0.6);
+            }
+            .medtrx-tab-icon {
+                font-size: 13px;
                 line-height: 1;
-                margin-top: 2px;
-                transition: transform 0.2s ease;
+                filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
             }
+            .medtrx-tab-arrow {
+                font-size: 9px;
+                line-height: 1;
+                margin-top: 4px;
+                opacity: 0.85;
+                transition: transform 0.25s ease;
+            }
+
+            /* Liquid Frosted Glass Slide Panel */
             #medtrx-touch-panel {
-                width: 180px;
-                background: rgba(15, 23, 42, 0.94);
-                backdrop-filter: blur(8px);
-                -webkit-backdrop-filter: blur(8px);
-                border: 1px solid rgba(56, 189, 248, 0.35);
-                box-shadow: 0 12px 30px rgba(0,0,0,0.5);
-                border-radius: 0 0 0 14px;
+                width: 184px;
+                background: rgba(15, 23, 42, 0.58);
+                backdrop-filter: blur(28px) saturate(210%);
+                -webkit-backdrop-filter: blur(28px) saturate(210%);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                border-radius: 0 0 0 16px;
+                box-shadow: 0 16px 45px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
                 padding: 10px;
                 box-sizing: border-box;
                 display: flex;
@@ -766,16 +823,19 @@ namespace MedTRx
                 gap: 8px;
             }
             #medtrx-touch-container.medtrx-left #medtrx-touch-panel {
-                border-radius: 0 0 14px 0;
+                border-radius: 0 0 16px 0;
             }
-            .medtrx-touch-btn {
-                background: rgba(30, 41, 59, 0.9);
+
+            /* Touch Friendly Glass Buttons */
+            .medtrx-glass-btn {
+                background: rgba(255, 255, 255, 0.09);
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.15);
-                border-radius: 8px;
-                padding: 12px 8px;
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                border-radius: 10px;
+                padding: 11px 8px;
                 font-size: 13px;
                 font-weight: 600;
+                letter-spacing: 0.2px;
                 text-align: center;
                 cursor: pointer;
                 display: flex;
@@ -783,37 +843,40 @@ namespace MedTRx
                 justify-content: center;
                 gap: 8px;
                 touch-action: manipulation;
-                transition: background 0.15s ease, transform 0.1s ease;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.18);
+                transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
             }
-            .medtrx-touch-btn:active {
-                background: #0e7490;
-                transform: scale(0.97);
+            .medtrx-glass-btn:active {
+                transform: scale(0.96);
+                background: rgba(14, 116, 144, 0.5);
+                border-color: rgba(56, 189, 248, 0.5);
             }
-            .medtrx-touch-btn-primary {
-                background: #0891b2;
-                border-color: #38bdf8;
-                font-size: 14px;
+            .medtrx-glass-btn-primary {
+                background: linear-gradient(135deg, rgba(14, 116, 144, 0.8), rgba(6, 182, 212, 0.65));
+                border: 1px solid rgba(56, 189, 248, 0.45);
+                font-size: 13.5px;
                 font-weight: 700;
+                box-shadow: 0 4px 16px rgba(6, 182, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
             }
-            .medtrx-touch-btn-primary:active {
-                background: #06b6d4;
+            .medtrx-glass-btn-primary:active {
+                background: linear-gradient(135deg, rgba(14, 116, 144, 0.95), rgba(6, 182, 212, 0.85));
             }
-            .medtrx-touch-secondary-row {
+            .medtrx-glass-row {
                 display: flex;
                 gap: 6px;
             }
-            .medtrx-touch-secondary-row .medtrx-touch-btn {
+            .medtrx-glass-row .medtrx-glass-btn {
                 flex: 1;
                 padding: 8px 4px;
-                font-size: 11px;
+                font-size: 11.5px;
                 font-weight: 500;
             }
         `;
 
         var tab = document.createElement('div');
         tab.id = 'medtrx-touch-tab';
-        tab.title = 'MedTRx Screen Controls';
-        tab.innerHTML = '<span>⛶</span><span id=""medtrx-touch-tab-arrow"">◀</span>';
+        tab.title = 'Drag to reposition vertically • Tap to open';
+        tab.innerHTML = '<span class=""medtrx-tab-icon"">⛶</span><span id=""medtrx-touch-tab-arrow"" class=""medtrx-tab-arrow"">◀</span>';
 
         var panel = document.createElement('div');
         panel.id = 'medtrx-touch-panel';
@@ -821,22 +884,22 @@ namespace MedTRx
         // 1. Toggle Fullscreen Button
         var btnFullscreen = document.createElement('button');
         btnFullscreen.id = 'medtrx-btn-fullscreen';
-        btnFullscreen.className = 'medtrx-touch-btn medtrx-touch-btn-primary';
+        btnFullscreen.className = 'medtrx-glass-btn medtrx-glass-btn-primary';
         btnFullscreen.innerHTML = isFullscreen ? '<span>🗗</span> Exit Full' : '<span>⛶</span> Fullscreen';
 
         // 2. Secondary Row: Reload & Swap Corner
         var secRow = document.createElement('div');
-        secRow.className = 'medtrx-touch-secondary-row';
+        secRow.className = 'medtrx-glass-row';
 
         var btnReload = document.createElement('button');
-        btnReload.className = 'medtrx-touch-btn';
+        btnReload.className = 'medtrx-glass-btn';
         btnReload.innerHTML = '🔄 Reload';
 
         var btnSwap = document.createElement('button');
         btnSwap.id = 'medtrx-btn-swap';
-        btnSwap.className = 'medtrx-touch-btn';
+        btnSwap.className = 'medtrx-glass-btn';
         btnSwap.innerHTML = '⇄ Side';
-        btnSwap.title = 'Swap Left / Right side';
+        btnSwap.title = 'Swap between Left and Right edge';
 
         secRow.appendChild(btnReload);
         secRow.appendChild(btnSwap);
@@ -849,15 +912,57 @@ namespace MedTRx
         document.body.appendChild(style);
         document.body.appendChild(host);
 
-        // Apply initial collapsed state
+        // Apply initial layout & idle dimming
         updateSidebarClass();
+        startIdleTimer();
 
-        // Interactions
-        tab.addEventListener('click', function(e) {
-            e.stopPropagation();
-            toggleSidebar();
+        // Pointer / Touch Dragging & Click Handling
+        tab.addEventListener('pointerdown', function(e) {
+            isDragging = true;
+            hasMoved = false;
+            dragStartY = e.clientY;
+            initialTop = topPos;
+            host.classList.add('medtrx-dragging');
+            host.classList.remove('medtrx-idle');
+            try { tab.setPointerCapture(e.pointerId); } catch(err) {}
+            e.preventDefault();
         });
 
+        tab.addEventListener('pointermove', function(e) {
+            if (!isDragging) return;
+            var deltaY = e.clientY - dragStartY;
+            if (Math.abs(deltaY) > 5) {
+                hasMoved = true;
+            }
+            if (hasMoved) {
+                var maxTop = window.innerHeight - 80;
+                var newTop = Math.max(16, Math.min(maxTop, initialTop + deltaY));
+                topPos = Math.round(newTop);
+                host.style.top = topPos + 'px';
+            }
+        });
+
+        tab.addEventListener('pointerup', function(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            host.classList.remove('medtrx-dragging');
+            try { tab.releasePointerCapture(e.pointerId); } catch(err) {}
+
+            if (hasMoved) {
+                savePosition();
+                startIdleTimer();
+            } else {
+                // It was a tap -> toggle open/close
+                toggleSidebar();
+            }
+        });
+
+        tab.addEventListener('pointercancel', function() {
+            isDragging = false;
+            host.classList.remove('medtrx-dragging');
+        });
+
+        // Panel Actions
         btnFullscreen.addEventListener('click', function(e) {
             e.stopPropagation();
             sendHostMessage('toggle_fullscreen');
@@ -874,15 +979,26 @@ namespace MedTRx
             e.stopPropagation();
             side = (side === 'right' ? 'left' : 'right');
             updateSidebarClass();
+            savePosition();
             resetAutoHide();
         });
 
-        panel.addEventListener('touchstart', function() { resetAutoHide(); }, { passive: true });
+        panel.addEventListener('pointerdown', function() { resetAutoHide(); });
         panel.addEventListener('click', function() { resetAutoHide(); });
 
         document.addEventListener('click', function(e) {
             if (isExpanded && !host.contains(e.target)) {
                 collapseSidebar();
+            }
+        });
+
+        // Window resize boundary guard
+        window.addEventListener('resize', function() {
+            var maxTop = window.innerHeight - 80;
+            if (topPos > maxTop) {
+                topPos = Math.max(16, maxTop);
+                host.style.top = topPos + 'px';
+                savePosition();
             }
         });
     }
@@ -912,23 +1028,37 @@ namespace MedTRx
     function collapseSidebar() {
         isExpanded = false;
         updateSidebarClass();
-        if (autoHideTimer) clearTimeout(autoHideTimer);
+        startIdleTimer();
     }
 
     function resetAutoHide() {
+        var host = document.getElementById('medtrx-touch-container');
+        if (host) host.classList.remove('medtrx-idle');
         if (autoHideTimer) clearTimeout(autoHideTimer);
         autoHideTimer = setTimeout(function() {
             if (isExpanded) {
                 collapseSidebar();
+            } else {
+                startIdleTimer();
             }
         }, 4000);
+    }
+
+    function startIdleTimer() {
+        if (autoHideTimer) clearTimeout(autoHideTimer);
+        autoHideTimer = setTimeout(function() {
+            var host = document.getElementById('medtrx-touch-container');
+            if (host && !isExpanded && !isDragging) {
+                host.classList.add('medtrx-idle');
+            }
+        }, 3000);
     }
 
     function updateSidebarClass() {
         var host = document.getElementById('medtrx-touch-container');
         if (!host) return;
 
-        host.classList.remove('medtrx-left', 'medtrx-collapsed-right', 'medtrx-collapsed-left');
+        host.classList.remove('medtrx-left', 'medtrx-collapsed-right', 'medtrx-collapsed-left', 'medtrx-idle');
 
         if (side === 'left') {
             host.classList.add('medtrx-left');
