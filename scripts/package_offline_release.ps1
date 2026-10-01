@@ -135,6 +135,7 @@ $AppFiles = @(
     "WebView2Loader.dll",
     "logo.ico",
     "config.json",
+    "checksums.sha256",
     "ErrorPage.html",
     "install.bat",
     "install.ps1",

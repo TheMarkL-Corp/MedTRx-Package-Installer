@@ -6,6 +6,8 @@ dist-offline/
 .cache/
 packages/
 release/
+tests/*.exe
+*.rsp
 
 # User runtime data & caches
 UserData/

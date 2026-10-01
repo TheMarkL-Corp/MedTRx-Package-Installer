@@ -11,5 +11,7 @@
   "autoOpenPdf": true,
   "pdfViewerMode": "embedded",
   "alwaysOnTop": false,
-  "touchFullscreenSidebar": true
+  "touchFullscreenSidebar": true,
+  "lockSettings": false,
+  "adminPassword": ""
 }

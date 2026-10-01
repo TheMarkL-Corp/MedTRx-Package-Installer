@@ -3,7 +3,7 @@
 **Project Name:** MedTRx Native Desktop Wrapper & Installer  
 **Workspace:** `d:\Antigravity Projects\AMiS-MedTRx-APP Installer`  
 **Created:** 2026-09-03  
-**Status:** Active / Production Ready (v1.0.0)
+**Status:** Active / Production Ready (v1.0.3)
 
 ---
 
@@ -119,8 +119,8 @@ The configuration file is formatted as standard JSON. It can be placed directly 
 
 The build engine (`scripts\build.ps1` / `scripts\build.bat`) operates with **zero external prerequisites**:
 1. Checks for Windows built-in `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`.
-2. Reads the single-source-of-truth version from `VERSION` (e.g., `1.0.2`).
-3. Automatically generates/synchronizes `src\AssemblyInfo.cs` with `AssemblyVersion`, `AssemblyFileVersion` (`1.0.2.0`), and `AssemblyInformationalVersion` (`1.0.2`). This guarantees that the Windows binary properties (`Product version` and `File version` in `.exe`) always match the release package version.
+2. Reads the single-source-of-truth version from `VERSION` (e.g., `1.0.3`).
+3. Automatically generates/synchronizes `src\AssemblyInfo.cs` with `AssemblyVersion`, `AssemblyFileVersion` (`1.0.3.0`), and `AssemblyInformationalVersion` (`1.0.3`). This guarantees that the Windows binary properties (`Product version` and `File version` in `.exe`) always match the release package version.
 4. Downloads `Microsoft.Web.WebView2` NuGet package from nuget.org (cached locally in `.cache/`).
 5. Extracts `Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll`, and native `WebView2Loader.dll`.
 6. Compiles `src\AssemblyInfo.cs`, `src\Program.cs`, `src\MainForm.cs`, `src\PdfViewerForm.cs`, `src\SettingsForm.cs`, and `src\ConfigManager.cs` via a generated compiler response file (`build.rsp`) embedding `assets\logo.ico` into the executable's Win32 resources.
@@ -166,3 +166,38 @@ To update the application icon with a new corporate or hospital design:
 1. Replace `assets\logo.ico` with the new multi-resolution `.ico` file.
 2. Run `scripts\build.bat`.
 3. Run `scripts\install.bat` to refresh the desktop shortcut and deployed binary.
+
+---
+
+## 8. Military Hospital Hardening & Compliance Specifications (DoD STIG / HIPAA)
+
+For military hospital workstations, AMiS medical carts, and air-gapped clinical wards:
+
+1. **Protocol Scheme Whitelisting & Navigation Restraint (`src/MainForm.cs` & `src/PdfViewerForm.cs`):**
+   - Both `CoreWebView2.NavigationStarting` and `CoreWebView2.NewWindowRequested` enforce strict scheme validation via `TryResolveHttpOrHttps`.
+   - **Permitted Schemes:** `http://` and `https://` (full support for standard hospital intranets and secure web systems), `about:blank`, `blob:`, and `data:` (internal in-memory charts, reports, and file generation).
+   - **Local App Assets:** `file://` URLs are permitted exclusively if they resolve within the application's base directory (e.g. `ErrorPage.html`).
+   - **Rejected Schemes:** Arbitrary custom protocols (e.g. `file://` external, `ms-settings:`, `calc:`, `cmd:`, `powershell:`, `smb:`, `ldap:`, `telnet:`) are blocked (`e.Cancel = true` / `e.Handled = true`) to prevent protocol hijacking, Windows shell execution, or kiosk breakout.
+   - **PDF Viewer Hardening:** External viewer calls validate local file existence or `http`/`https` protocols prior to invoking `Process.Start`.
+
+2. **Host-Browser IPC Origin Validation (`src/MainForm.cs`):**
+   - `WebView_WebMessageReceived` strictly validates `e.Source` via `IsAuthorizedMessageSource`.
+   - Cross-origin message injection from untrusted frames or foreign domains is completely rejected. Only messages from the configured hospital origin or the local `ErrorPage.html` are processed.
+
+3. **Kiosk & Admin Locking (`src/ConfigManager.cs`, `src/MainForm.cs`, `src/SettingsForm.cs`):**
+   - Added `lockSettings: true` and optional `adminPassword` support.
+   - When settings are locked, accessing configuration via `F2`, `Ctrl+,`, or the Touch Sidebar prompts for the administrator password (or displays an administrative lockout notice).
+   - Chromium DevTools (`F12`, `enableDevTools`) is permanently forced to `false` when settings are locked.
+
+4. **Supply Chain & 100% Offline Isolation (`src/MainForm.cs`, `scripts/install.ps1`):**
+   - Removed all dynamic web download fallbacks to `go.microsoft.com` from runtime error handlers and installation scripts.
+   - In air-gapped military networks, missing runtimes report clear offline instructions without attempting unauthorized outbound internet requests.
+
+5. **Binary Hardening & Cryptographic Integrity (`scripts/build.ps1`):**
+   - Enabled High-Entropy 64-bit ASLR (`/highentropyva+`) in compilation flags.
+   - Integrated optional Authenticode signing hooks for Windows SDK `signtool.exe` with certificate thumbprints/files.
+   - Automated generation of `dist/checksums.sha256` SHA-256 integrity manifest for supply chain verification.
+
+6. **HIPAA Logging & ePHI Sanitization (`src/Program.cs`, `scripts/install.ps1`):**
+   - Added regex sanitization in `SanitizeLogMessage` to strip URL query strings (`?[QUERY_REDACTED]`), bearer tokens, and session secrets from `crash.log` and `error.log`.
+   - `scripts/install.ps1` sets strict NTFS ACLs via `icacls` on `%LOCALAPPDATA%\MedTRx` and program directories, restricting access strictly to the current user, SYSTEM, and Administrators.

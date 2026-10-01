@@ -170,7 +170,19 @@ namespace MedTRx
                 }
                 else
                 {
-                    Process.Start(pdfPath);
+                    Uri parsedUri;
+                    if (Uri.TryCreate(pdfPath, UriKind.Absolute, out parsedUri) &&
+                        (parsedUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                         parsedUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ProcessStartInfo psi = new ProcessStartInfo(parsedUri.AbsoluteUri);
+                        psi.UseShellExecute = true;
+                        Process.Start(psi);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Cannot open external link: only HTTP and HTTPS protocols are permitted.", "Security Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 }
             }
             catch (Exception ex)

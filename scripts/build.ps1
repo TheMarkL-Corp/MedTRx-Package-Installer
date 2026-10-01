@@ -32,7 +32,7 @@ Write-Host "[+] Found C# Compiler: $CscPath" -ForegroundColor Green
 
 # 2. Determine App Version from VERSION file
 $VersionFile = Join-Path $ProjectDir "VERSION"
-$AppVersion = "1.0.2"
+$AppVersion = "1.0.3"
 if (Test-Path $VersionFile) {
     $AppVersion = (Get-Content $VersionFile -Raw).Trim()
 }
@@ -68,6 +68,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyVersion("$FourPartVersion")]
 [assembly: AssemblyFileVersion("$FourPartVersion")]
 [assembly: AssemblyInformationalVersion("$AppVersion")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("MedTRx.Tests")]
 "@
 
 $AssemblyInfoPath = Join-Path $ProjectDir "src\AssemblyInfo.cs"
@@ -171,6 +172,7 @@ $RspLines = @(
     "/target:winexe",
     "/platform:anycpu",
     "/optimize+",
+    "/highentropyva+",
     "/win32icon:`"$IconSource`"",
     "/r:System.dll",
     "/r:System.Windows.Forms.dll",
@@ -197,6 +199,36 @@ if ($proc.ExitCode -ne 0) {
     Write-Error "Compilation failed with exit code $($proc.ExitCode)."
     exit $proc.ExitCode
 }
+
+# 7. Optional Authenticode Code Signing
+$SignTool = Get-Command "signtool.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
+if (-not $SignTool) {
+    $KitPaths = @(
+        "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe",
+        "${env:ProgramFiles}\Windows Kits\10\bin\*\x64\signtool.exe"
+    )
+    $SignTool = Resolve-Path $KitPaths -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -First 1
+}
+
+if ($SignTool -and $env:SIGN_CERT_THUMBPRINT) {
+    Write-Host "[*] Signing binary with Authenticode certificate ($($env:SIGN_CERT_THUMBPRINT))..." -ForegroundColor Yellow
+    & $SignTool sign /sha1 $env:SIGN_CERT_THUMBPRINT /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "$OutputExe"
+} elseif ($SignTool -and $env:SIGN_CERT_PATH) {
+    Write-Host "[*] Signing binary with certificate file ($($env:SIGN_CERT_PATH))..." -ForegroundColor Yellow
+    $pwdArg = if ($env:SIGN_CERT_PASSWORD) { "/p `"$($env:SIGN_CERT_PASSWORD)`"" } else { "" }
+    & $SignTool sign /f "$($env:SIGN_CERT_PATH)" $pwdArg /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "$OutputExe"
+}
+
+# 8. Generate SHA-256 Integrity Manifest
+Write-Host "[*] Generating SHA-256 integrity checksum manifest..." -ForegroundColor Yellow
+$ChecksumFile = Join-Path $DistDir "checksums.sha256"
+$ChecksumLines = @()
+Get-ChildItem -Path $DistDir -File | Where-Object { $_.Name -ne "checksums.sha256" } | ForEach-Object {
+    $hash = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    $ChecksumLines += "$hash  $($_.Name)"
+}
+[System.IO.File]::WriteAllLines($ChecksumFile, $ChecksumLines)
+Write-Host "[+] Checksum manifest generated: $ChecksumFile" -ForegroundColor Green
 
 Write-Host "=================================================" -ForegroundColor Green
 Write-Host "  BUILD SUCCESSFUL!                              " -ForegroundColor Green

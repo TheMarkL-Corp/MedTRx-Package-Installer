@@ -14,6 +14,8 @@ namespace MedTRx
         private CheckBox chkTouchSidebar;
         private CheckBox chkNavigationKeys;
         private CheckBox chkEnableDevTools;
+        private CheckBox chkLockSettings;
+        private TextBox txtAdminPassword;
         private Button btnSave;
         private Button btnCancel;
 
@@ -30,7 +32,7 @@ namespace MedTRx
         private void InitializeComponent()
         {
             this.Text = "MedTRx - Application Configuration";
-            this.Size = new Size(540, 480);
+            this.Size = new Size(540, 520);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -154,10 +156,33 @@ namespace MedTRx
             chkEnableDevTools.Checked = Config.enableDevTools;
             this.Controls.Add(chkEnableDevTools);
 
+            // Military / Kiosk Lock Controls
+            chkLockSettings = new CheckBox();
+            chkLockSettings.Text = "Lock Settings & DevTools (Kiosk / Medical Cart Mode)";
+            chkLockSettings.Location = new Point(20, startY + 276);
+            chkLockSettings.AutoSize = true;
+            chkLockSettings.Checked = Config.lockSettings;
+            chkLockSettings.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            chkLockSettings.ForeColor = Color.FromArgb(185, 28, 28);
+            this.Controls.Add(chkLockSettings);
+
+            Label lblAdminPwd = new Label();
+            lblAdminPwd.Text = "Admin Password (optional):";
+            lblAdminPwd.Location = new Point(20, startY + 303);
+            lblAdminPwd.AutoSize = true;
+            this.Controls.Add(lblAdminPwd);
+
+            txtAdminPassword = new TextBox();
+            txtAdminPassword.Location = new Point(195, startY + 300);
+            txtAdminPassword.Width = 305;
+            txtAdminPassword.PasswordChar = '●';
+            txtAdminPassword.Text = Config.adminPassword != null ? Config.adminPassword : "";
+            this.Controls.Add(txtAdminPassword);
+
             // Buttons
             btnSave = new Button();
             btnSave.Text = "Save & Launch";
-            btnSave.Location = new Point(260, startY + 295);
+            btnSave.Location = new Point(260, startY + 345);
             btnSave.Size = new Size(130, 36);
             btnSave.BackColor = Color.FromArgb(14, 116, 144);
             btnSave.ForeColor = Color.White;
@@ -169,7 +194,7 @@ namespace MedTRx
 
             btnCancel = new Button();
             btnCancel.Text = "Cancel";
-            btnCancel.Location = new Point(400, startY + 295);
+            btnCancel.Location = new Point(400, startY + 345);
             btnCancel.Size = new Size(100, 36);
             btnCancel.BackColor = Color.FromArgb(226, 232, 240);
             btnCancel.ForeColor = Color.FromArgb(30, 41, 59);
@@ -205,8 +230,7 @@ namespace MedTRx
             }
 
             if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-                !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase) &&
-                !url.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+                !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
                 url = "https://" + url;
             }
@@ -218,7 +242,9 @@ namespace MedTRx
             Config.alwaysOnTop = chkAlwaysOnTop.Checked;
             Config.touchFullscreenSidebar = chkTouchSidebar.Checked;
             Config.enableNavigationKeys = chkNavigationKeys.Checked;
-            Config.enableDevTools = chkEnableDevTools.Checked;
+            Config.lockSettings = chkLockSettings.Checked;
+            Config.adminPassword = txtAdminPassword.Text.Trim();
+            Config.enableDevTools = Config.lockSettings ? false : chkEnableDevTools.Checked;
 
             ConfigManager.Save(Config);
             this.Saved = true;

@@ -114,7 +114,7 @@ namespace MedTRx
 
                 // Configure WebView2 Settings
                 var settings = webView.CoreWebView2.Settings;
-                settings.AreDevToolsEnabled = config.enableDevTools;
+                settings.AreDevToolsEnabled = config.enableDevTools && !config.lockSettings;
                 settings.IsStatusBarEnabled = false;
                 settings.IsZoomControlEnabled = true;
                 settings.AreDefaultContextMenusEnabled = true;
@@ -150,11 +150,8 @@ namespace MedTRx
                     webView.ZoomFactor = config.zoomFactor;
                 }
 
-                // Top Loading Indicator
-                webView.NavigationStarting += (s, e) =>
-                {
-                    if (topProgressBar != null) topProgressBar.Visible = true;
-                };
+                // Top Loading Indicator & Navigation Scheme Validation
+                webView.NavigationStarting += new EventHandler<CoreWebView2NavigationStartingEventArgs>(WebView_NavigationStarting);
 
                 // Title update from webpage
                 webView.CoreWebView2.DocumentTitleChanged += (s, e) =>
@@ -195,32 +192,39 @@ namespace MedTRx
 
             if (isMissingRuntime)
             {
-                DialogResult result = MessageBox.Show(
-                    "Microsoft Edge WebView2 Evergreen Runtime is required to run MedTRx, but was not found on this computer.\n\n" +
-                    "Would you like MedTRx to automatically install it now?",
-                    "Microsoft Edge WebView2 Required",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question
-                );
-
-                if (result == DialogResult.Yes)
+                string setupExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MicrosoftEdgeWebview2Setup.exe");
+                if (File.Exists(setupExe))
                 {
-                    TryInstallWebView2AndRestart();
-                    return;
+                    DialogResult result = MessageBox.Show(
+                        "Microsoft Edge WebView2 Runtime is required to run MedTRx, but was not found on this computer.\n\n" +
+                        "An offline installer was found in the application directory. Would you like MedTRx to install it now?",
+                        "Microsoft Edge WebView2 Required",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question
+                    );
+
+                    if (result == DialogResult.Yes)
+                    {
+                        TryInstallWebView2OfflineAndRestart(setupExe);
+                        return;
+                    }
                 }
                 else
                 {
-                    try
-                    {
-                        System.Diagnostics.Process.Start("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
-                    }
-                    catch { }
+                    MessageBox.Show(
+                        "Microsoft Edge WebView2 Runtime was not detected on this machine.\n\n" +
+                        "For air-gapped/secure hospital deployments, please deploy the 100% Offline Fixed-Version Bundle (containing runtime/) " +
+                        "or place MicrosoftEdgeWebview2Setup.exe into the application folder.",
+                        "WebView2 Runtime Missing",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
                 }
             }
             else
             {
                 MessageBox.Show(
-                    "Error initializing WebView2 runtime: " + ex.Message + "\n\nPlease ensure Microsoft Edge WebView2 Evergreen Runtime is installed.",
+                    "Error initializing WebView2 runtime: " + ex.Message + "\n\nPlease ensure Microsoft Edge WebView2 Runtime is installed.",
                     "WebView2 Initialization Error",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error
@@ -228,24 +232,13 @@ namespace MedTRx
             }
         }
 
-        private void TryInstallWebView2AndRestart()
+        private void TryInstallWebView2OfflineAndRestart(string setupExe)
         {
             try
             {
-                this.Cursor = Cursors.WaitCursor;
-                string setupExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MicrosoftEdgeWebview2Setup.exe");
-                if (!File.Exists(setupExe))
-                {
-                    setupExe = Path.Combine(Path.GetTempPath(), "MicrosoftEdgeWebview2Setup.exe");
-                    System.Net.ServicePointManager.SecurityProtocol = (System.Net.SecurityProtocolType)3072;
-                    using (System.Net.WebClient client = new System.Net.WebClient())
-                    {
-                        client.DownloadFile("https://go.microsoft.com/fwlink/p/?LinkId=2124703", setupExe);
-                    }
-                }
-
                 if (File.Exists(setupExe))
                 {
+                    this.Cursor = Cursors.WaitCursor;
                     System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo();
                     startInfo.FileName = setupExe;
                     startInfo.Arguments = "/silent /install";
@@ -273,16 +266,11 @@ namespace MedTRx
             {
                 this.Cursor = Cursors.Default;
                 MessageBox.Show(
-                    "Could not automatically install WebView2: " + ex.Message + "\n\nOpening Microsoft download page in browser...",
+                    "Could not install offline WebView2: " + ex.Message,
                     "Installation Error",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
+                    MessageBoxIcon.Error
                 );
-                try
-                {
-                    System.Diagnostics.Process.Start("https://go.microsoft.com/fwlink/p/?LinkId=2124703");
-                }
-                catch { }
             }
         }
 
@@ -339,6 +327,86 @@ namespace MedTRx
             }
         }
 
+        private bool TryResolveHttpOrHttps(string uriString, out Uri parsedUri)
+        {
+            return TryResolveHttpOrHttps(uriString, config != null ? config.url : null, out parsedUri);
+        }
+
+        internal static bool TryResolveHttpOrHttps(string uriString, string configuredBaseUrl, out Uri parsedUri)
+        {
+            parsedUri = null;
+            if (string.IsNullOrWhiteSpace(uriString))
+            {
+                return false;
+            }
+
+            if (Uri.TryCreate(uriString, UriKind.Absolute, out parsedUri))
+            {
+                return parsedUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                       parsedUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (!string.IsNullOrEmpty(configuredBaseUrl))
+            {
+                Uri baseUri;
+                if (Uri.TryCreate(configuredBaseUrl, UriKind.Absolute, out baseUri))
+                {
+                    if (Uri.TryCreate(baseUri, uriString, out parsedUri))
+                    {
+                        return parsedUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                               parsedUri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private void WebView_NavigationStarting(object sender, CoreWebView2NavigationStartingEventArgs e)
+        {
+            if (topProgressBar != null)
+            {
+                topProgressBar.Visible = true;
+            }
+
+            string navUri = e.Uri != null ? e.Uri.Trim() : "";
+            if (string.IsNullOrEmpty(navUri)) return;
+
+            // Allow internal WebView2 browser protocols
+            if (navUri.StartsWith("about:", StringComparison.OrdinalIgnoreCase) ||
+                navUri.StartsWith("blob:", StringComparison.OrdinalIgnoreCase) ||
+                navUri.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            // Allow HTTP and HTTPS
+            Uri parsedUri;
+            if (TryResolveHttpOrHttps(navUri, out parsedUri))
+            {
+                return;
+            }
+
+            // Allow local file:// ONLY if it is inside the application directory (e.g. ErrorPage.html)
+            if (Uri.TryCreate(navUri, UriKind.Absolute, out parsedUri) &&
+                parsedUri.Scheme.Equals(Uri.UriSchemeFile, StringComparison.OrdinalIgnoreCase))
+            {
+                string localPath = parsedUri.LocalPath;
+                string appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
+                if (!string.IsNullOrEmpty(localPath) && localPath.StartsWith(appDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    return; // Legitimate local app asset
+                }
+            }
+
+            // Reject any other custom protocol schemes (e.g. file:// external, ms-*, smb://, cmd:, etc.)
+            e.Cancel = true;
+            if (topProgressBar != null)
+            {
+                topProgressBar.Visible = false;
+            }
+        }
+
         private void WebView_NavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
         {
             if (topProgressBar != null)
@@ -386,10 +454,52 @@ namespace MedTRx
             catch { }
         }
 
+        private bool IsAuthorizedMessageSource(string sourceUri)
+        {
+            return IsAuthorizedMessageSource(sourceUri, config != null ? config.url : null, AppDomain.CurrentDomain.BaseDirectory);
+        }
+
+        internal static bool IsAuthorizedMessageSource(string sourceUri, string configuredUrl, string baseDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(sourceUri)) return false;
+
+            Uri source;
+            if (Uri.TryCreate(sourceUri, UriKind.Absolute, out source))
+            {
+                // 1. Allow local application ErrorPage.html or local assets
+                if (source.Scheme.Equals(Uri.UriSchemeFile, StringComparison.OrdinalIgnoreCase))
+                {
+                    string localPath = source.LocalPath;
+                    string appDir = !string.IsNullOrEmpty(baseDirectory) ? baseDirectory.TrimEnd('\\', '/') : "";
+                    return !string.IsNullOrEmpty(localPath) && localPath.StartsWith(appDir, StringComparison.OrdinalIgnoreCase);
+                }
+
+                // 2. Allow configured hospital web server origin
+                if (!string.IsNullOrEmpty(configuredUrl))
+                {
+                    Uri target;
+                    if (Uri.TryCreate(configuredUrl, UriKind.Absolute, out target))
+                    {
+                        return source.Scheme.Equals(target.Scheme, StringComparison.OrdinalIgnoreCase) &&
+                               source.Host.Equals(target.Host, StringComparison.OrdinalIgnoreCase) &&
+                               source.Port == target.Port;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         private void WebView_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
         {
             try
             {
+                // Reject untrusted cross-origin messages
+                if (!IsAuthorizedMessageSource(e.Source))
+                {
+                    return;
+                }
+
                 string msg = e.TryGetWebMessageAsString();
                 if (string.IsNullOrEmpty(msg))
                 {
@@ -442,26 +552,21 @@ namespace MedTRx
         {
             string uri = e.Uri != null ? e.Uri.Trim() : "";
 
-            // 1. Guard against blank / about: protocols - NEVER call Process.Start on about: links
+            // 1. Guard against blank / about: protocols - let WebView2 manage internal popup/blank window safely
             if (string.IsNullOrEmpty(uri) || 
-                uri.StartsWith("about:", StringComparison.OrdinalIgnoreCase) || 
-                uri.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
+                uri.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
             {
-                // Let WebView2 manage internal popup/blank window without triggering Windows Shell error
                 return;
             }
 
-            // 2. Direct PDF links or requests
-            if (uri.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) || 
-                uri.IndexOf(".pdf?", StringComparison.OrdinalIgnoreCase) >= 0 || 
-                uri.IndexOf("/pdf", StringComparison.OrdinalIgnoreCase) >= 0)
+            // Reject javascript: pseudo-protocol in new window
+            if (uri.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase))
             {
                 e.Handled = true;
-                OpenPdfViewer(uri);
                 return;
             }
 
-            // 3. Blob / Data URLs: handle internally within WebView2
+            // 2. Blob / Data URLs: handle internally within WebView2 (client-side generated reports/previews)
             if (uri.StartsWith("blob:", StringComparison.OrdinalIgnoreCase) || 
                 uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
             {
@@ -473,13 +578,34 @@ namespace MedTRx
                 return;
             }
 
-            // 4. External HTTP/HTTPS links
+            // 3. Scheme Validation: ONLY allow HTTP and HTTPS protocols. Reject any other custom protocol schemes.
+            Uri parsedUri;
+            if (!TryResolveHttpOrHttps(uri, out parsedUri))
+            {
+                // Reject custom protocol schemes (e.g. file:, ms-*, smb:, cmd:, calc:, etc.)
+                e.Handled = true;
+                return;
+            }
+
+            string targetUrl = parsedUri.AbsoluteUri;
+
+            // 4. Direct PDF links or requests over HTTP/HTTPS
+            if (targetUrl.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) || 
+                targetUrl.IndexOf(".pdf?", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                targetUrl.IndexOf("/pdf", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                e.Handled = true;
+                OpenPdfViewer(targetUrl);
+                return;
+            }
+
+            // 5. External HTTP/HTTPS links
             if (config.allowExternalLinks)
             {
                 e.Handled = true;
                 try
                 {
-                    System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo(uri);
+                    System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo(targetUrl);
                     psi.UseShellExecute = true;
                     System.Diagnostics.Process.Start(psi);
                 }
@@ -487,7 +613,7 @@ namespace MedTRx
                 {
                     if (webView != null && webView.CoreWebView2 != null)
                     {
-                        webView.CoreWebView2.Navigate(uri);
+                        webView.CoreWebView2.Navigate(targetUrl);
                     }
                 }
             }
@@ -496,7 +622,7 @@ namespace MedTRx
                 e.Handled = true;
                 if (webView != null && webView.CoreWebView2 != null)
                 {
-                    webView.CoreWebView2.Navigate(uri);
+                    webView.CoreWebView2.Navigate(targetUrl);
                 }
             }
         }
@@ -533,10 +659,14 @@ namespace MedTRx
                 {
                     try
                     {
-                        System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo("chrome.exe", "\"" + pathOrUrl + "\"");
-                        psi.UseShellExecute = true;
-                        System.Diagnostics.Process.Start(psi);
-                        return;
+                        Uri testUri;
+                        if (File.Exists(pathOrUrl) || TryResolveHttpOrHttps(pathOrUrl, out testUri))
+                        {
+                            System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo("chrome.exe", "\"" + pathOrUrl + "\"");
+                            psi.UseShellExecute = true;
+                            System.Diagnostics.Process.Start(psi);
+                            return;
+                        }
                     }
                     catch { } // Fallback to embedded if chrome is not found
                 }
@@ -544,10 +674,14 @@ namespace MedTRx
                 {
                     try
                     {
-                        System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo(pathOrUrl);
-                        psi.UseShellExecute = true;
-                        System.Diagnostics.Process.Start(psi);
-                        return;
+                        Uri testUri;
+                        if (File.Exists(pathOrUrl) || TryResolveHttpOrHttps(pathOrUrl, out testUri))
+                        {
+                            System.Diagnostics.ProcessStartInfo psi = new System.Diagnostics.ProcessStartInfo(pathOrUrl);
+                            psi.UseShellExecute = true;
+                            System.Diagnostics.Process.Start(psi);
+                            return;
+                        }
                     }
                     catch { }
                 }
@@ -604,7 +738,7 @@ namespace MedTRx
             }
 
             // F12: DevTools
-            if (e.KeyCode == Keys.F12 && config.enableDevTools)
+            if (e.KeyCode == Keys.F12 && config.enableDevTools && !config.lockSettings)
             {
                 e.Handled = true;
                 if (webView != null && webView.CoreWebView2 != null)
@@ -666,6 +800,38 @@ namespace MedTRx
 
         public void ShowSettingsDialog()
         {
+            if (config != null && config.lockSettings)
+            {
+                if (string.IsNullOrEmpty(config.adminPassword))
+                {
+                    MessageBox.Show(
+                        "MedTRx application settings are locked by your hospital system administrator.",
+                        "Settings Locked",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information
+                    );
+                    return;
+                }
+                else
+                {
+                    string inputPwd = PromptAdminPassword();
+                    if (inputPwd == null)
+                    {
+                        return; // User cancelled
+                    }
+                    if (!inputPwd.Equals(config.adminPassword))
+                    {
+                        MessageBox.Show(
+                            "Incorrect administrator password. Access denied.",
+                            "Authentication Failed",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning
+                        );
+                        return;
+                    }
+                }
+            }
+
             using (var settingsForm = new SettingsForm(config))
             {
                 settingsForm.TopMost = this.TopMost;
@@ -676,10 +842,46 @@ namespace MedTRx
                     this.TopMost = config.alwaysOnTop;
                     if (webView != null && webView.CoreWebView2 != null)
                     {
-                        webView.CoreWebView2.Settings.AreDevToolsEnabled = config.enableDevTools;
+                        webView.CoreWebView2.Settings.AreDevToolsEnabled = config.enableDevTools && !config.lockSettings;
                         NavigateToTargetUrl();
                     }
                 }
+            }
+        }
+
+        private string PromptAdminPassword()
+        {
+            using (Form prompt = new Form())
+            {
+                prompt.Width = 360;
+                prompt.Height = 160;
+                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
+                prompt.Text = "Administrator Authentication";
+                prompt.StartPosition = FormStartPosition.CenterParent;
+                prompt.MaximizeBox = false;
+                prompt.MinimizeBox = false;
+                prompt.TopMost = this.TopMost;
+                prompt.BackColor = Color.FromArgb(248, 250, 252);
+                prompt.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+
+                Label textLabel = new Label() { Left = 20, Top = 16, Text = "Enter Administrator Password:", AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
+                TextBox textBox = new TextBox() { Left = 20, Top = 40, Width = 300, PasswordChar = '●' };
+                Button confirmation = new Button() { Text = "Unlock", Left = 150, Width = 80, Top = 76, DialogResult = DialogResult.OK, BackColor = Color.FromArgb(14, 116, 144), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+                confirmation.FlatAppearance.BorderSize = 0;
+                Button cancel = new Button() { Text = "Cancel", Left = 240, Width = 80, Top = 76, DialogResult = DialogResult.Cancel, BackColor = Color.FromArgb(226, 232, 240), FlatStyle = FlatStyle.Flat };
+                cancel.FlatAppearance.BorderSize = 0;
+
+                confirmation.Click += (sender, e) => { prompt.Close(); };
+                cancel.Click += (sender, e) => { prompt.Close(); };
+
+                prompt.Controls.Add(textLabel);
+                prompt.Controls.Add(textBox);
+                prompt.Controls.Add(confirmation);
+                prompt.Controls.Add(cancel);
+                prompt.AcceptButton = confirmation;
+                prompt.CancelButton = cancel;
+
+                return prompt.ShowDialog(this) == DialogResult.OK ? textBox.Text : null;
             }
         }
 

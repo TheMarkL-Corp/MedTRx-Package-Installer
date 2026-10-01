@@ -144,19 +144,9 @@ if ($HasBundledOffline) {
     if (-not (Test-Path $BootstrapperPath)) {
         $BootstrapperPath = Join-Path $SourceDir "MicrosoftEdgeWebview2Setup.exe"
     }
-    if (-not (Test-Path $BootstrapperPath)) {
-        $BootstrapperPath = Join-Path $env:TEMP "MicrosoftEdgeWebview2Setup.exe"
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Write-Step "Downloading MicrosoftEdgeWebview2Setup.exe..."
-        try {
-            Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile $BootstrapperPath -UseBasicParsing
-        } catch {
-            Write-WarnMsg "Failed to download WebView2 setup: $($_.Exception.Message)"
-        }
-    }
 
     if (Test-Path $BootstrapperPath) {
-        Write-Step "Running WebView2 installer..."
+        Write-Step "Running offline WebView2 installer..."
         $installProc = Start-Process -FilePath $BootstrapperPath -ArgumentList "/silent /install" -Wait -PassThru
         if ($installProc.ExitCode -eq 0 -or (Test-WebView2Installed)) {
             Write-Success "Microsoft Edge WebView2 Runtime installed successfully!"
@@ -164,6 +154,9 @@ if ($HasBundledOffline) {
             Write-WarnMsg "Silent install exited with code $($installProc.ExitCode). Launching interactive setup..."
             Start-Process -FilePath $BootstrapperPath -Wait
         }
+    } else {
+        Write-WarnMsg "MicrosoftEdgeWebview2Setup.exe was not found in the deployment package."
+        Write-WarnMsg "For air-gapped hospital networks, deploy the 100% Offline Fixed-Version Bundle (with runtime/) or install WebView2 before running MedTRx."
     }
 } else {
     Write-Success "Microsoft Edge WebView2 Runtime is already installed."
@@ -236,7 +229,7 @@ try {
         New-Item -Path $UninstallKey -Force | Out-Null
     }
     # Dynamically extract DisplayVersion from executable
-    $AppDisplayVer = "1.0.2"
+    $AppDisplayVer = "1.0.3"
     if (Test-Path $TargetExe) {
         $exeVer = (Get-Item $TargetExe).VersionInfo.ProductVersion
         if (-not [string]::IsNullOrEmpty($exeVer) -and $exeVer -ne "0.0.0.0") {
@@ -287,6 +280,19 @@ if (-not $Pinned) {
     Write-Host "    -> Simply right-click 'MedTRx' on your Desktop or Start Menu and click 'Pin to taskbar'." -ForegroundColor White
     Write-Host "    -> MedTRx is configured with AppUserModelID so when opened, it pins seamlessly!" -ForegroundColor White
 }
+
+# 7. Apply Strict NTFS Access Permissions (HIPAA / DoD Security Hardening)
+Write-Step "Securing application directory permissions (ICACLS)..."
+try {
+    $AppDataDir = Join-Path $env:LOCALAPPDATA "MedTRx"
+    if (-not (Test-Path $AppDataDir)) {
+        New-Item -ItemType Directory -Path $AppDataDir -Force | Out-Null
+    }
+    # Restrict permissions to Current User, SYSTEM, and Administrators
+    & icacls.exe "$InstallDir" /inheritance:r /grant:r "$($env:USERNAME):(OI)(CI)F" "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" /q | Out-Null
+    & icacls.exe "$AppDataDir" /inheritance:r /grant:r "$($env:USERNAME):(OI)(CI)F" "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" /q | Out-Null
+    Write-Success "Directory ACLs secured (Current User, SYSTEM, and Administrators)."
+} catch { }
 
 Write-Host "=================================================" -ForegroundColor Green
 Write-Host "  INSTALLATION COMPLETED SUCCESSFULLY!           " -ForegroundColor Green

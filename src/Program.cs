@@ -131,12 +131,42 @@ namespace MedTRx
                 string dir = Path.GetDirectoryName(logPath);
                 if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
+                string sanitized = SanitizeLogMessage(ex != null ? ex.ToString() : "Unknown exception");
                 File.AppendAllText(
                     logPath,
-                    "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] " + ex.ToString() + Environment.NewLine + Environment.NewLine
+                    "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] " + sanitized + Environment.NewLine + Environment.NewLine
                 );
             }
             catch { }
+        }
+
+        internal static string SanitizeLogMessage(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+
+            // Redact URL query parameters (e.g. ?patientId=..., ?token=...)
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text, 
+                @"(https?://[^\s""'>]+)\?([^\s""'>]+)", 
+                "$1?[QUERY_REDACTED]", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+
+            // Redact Bearer tokens, passwords, session secrets
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text, 
+                @"(Bearer\s+)[A-Za-z0-9\-_\.=]+", 
+                "$1[TOKEN_REDACTED]", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text, 
+                @"(password|pwd|secret|auth|token|sessionid|ssn)\s*[:=]\s*[^,\s;&]+", 
+                "$1=[REDACTED]", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+
+            return text;
         }
     }
 }

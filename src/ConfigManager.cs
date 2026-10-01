@@ -19,6 +19,8 @@ namespace MedTRx
         public string pdfViewerMode { get; set; }
         public bool alwaysOnTop { get; set; }
         public bool touchFullscreenSidebar { get; set; }
+        public bool lockSettings { get; set; }
+        public string adminPassword { get; set; }
 
         public AppConfig()
         {
@@ -35,6 +37,8 @@ namespace MedTRx
             pdfViewerMode = "embedded";
             alwaysOnTop = false;
             touchFullscreenSidebar = true;
+            lockSettings = false;
+            adminPassword = "";
         }
     }
 
@@ -93,9 +97,14 @@ namespace MedTRx
                 }
                 catch (Exception ex)
                 {
+                    string safeMsg = System.Text.RegularExpressions.Regex.Replace(
+                        ex.Message != null ? ex.Message : "", 
+                        @"(https?://[^\s""'>]+)\?([^\s""'>]+)", 
+                        "$1?[QUERY_REDACTED]"
+                    );
                     File.AppendAllText(
                         Path.Combine(AppDataDir, "error.log"), 
-                        DateTime.Now.ToString("s") + " [Config Error] " + ex.Message + Environment.NewLine
+                        DateTime.Now.ToString("s") + " [Config Error] " + safeMsg + Environment.NewLine
                     );
                 }
             }
