@@ -84,6 +84,8 @@ Write-Step "Deploying application files..."
 
 $FilesToCopy = @(
     "MedTRx.exe",
+    "MedTRx_Publisher.cer",
+    "checksums.sha256",
     "Microsoft.Web.WebView2.Core.dll",
     "Microsoft.Web.WebView2.WinForms.dll",
     "WebView2Loader.dll",
@@ -128,6 +130,35 @@ $UninstallBat = Join-Path $ScriptDir "uninstall.bat"
 $UninstallPs1 = Join-Path $ScriptDir "uninstall.ps1"
 if (Test-Path $UninstallBat) { Copy-Item $UninstallBat -Destination (Join-Path $InstallDir "uninstall.bat") -Force }
 if (Test-Path $UninstallPs1) { Copy-Item $UninstallPs1 -Destination (Join-Path $InstallDir "uninstall.ps1") -Force }
+
+# 3.1 Unblock Deployed Files (Eliminate Mark-of-the-Web / Zone.Identifier)
+Write-Step "Unblocking deployed application files..."
+try {
+    Get-ChildItem -Path $InstallDir -Recurse | Unblock-File -ErrorAction SilentlyContinue
+    Write-Success "All application files unblocked."
+} catch { }
+
+# 3.2 Register MedTRx Code Signing Certificate in Trusted Publishers
+$CertSource = Join-Path $InstallDir "MedTRx_Publisher.cer"
+if (-not (Test-Path $CertSource)) {
+    $CertSource = Join-Path $SourceDir "MedTRx_Publisher.cer"
+}
+if (Test-Path $CertSource) {
+    Write-Step "Registering MedTRx Publisher Certificate..."
+    try {
+        $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+        if ($isAdmin) {
+            & certutil.exe -addstore -f "TrustedPublisher" "$CertSource" | Out-Null
+            & certutil.exe -addstore -f "Root" "$CertSource" | Out-Null
+            Write-Success "Registered in LocalMachine Trusted Publishers & Root."
+        } else {
+            & certutil.exe -user -addstore -f "TrustedPublisher" "$CertSource" | Out-Null
+            Write-Success "Registered in CurrentUser Trusted Publishers."
+        }
+    } catch {
+        Write-WarnMsg "Certificate registration notice: $($_.Exception.Message)"
+    }
+}
 
 # 4. Check and Install Microsoft Edge WebView2 Runtime if missing
 $HasBundledOffline = (Test-Path (Join-Path $InstallDir "runtime\msedgewebview2.exe")) -or (Test-Path (Join-Path $SourceDir "runtime\msedgewebview2.exe"))

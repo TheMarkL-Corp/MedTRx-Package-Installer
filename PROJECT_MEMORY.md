@@ -201,3 +201,10 @@ For military hospital workstations, AMiS medical carts, and air-gapped clinical 
 6. **HIPAA Logging & ePHI Sanitization (`src/Program.cs`, `scripts/install.ps1`):**
    - Added regex sanitization in `SanitizeLogMessage` to strip URL query strings (`?[QUERY_REDACTED]`), bearer tokens, and session secrets from `crash.log` and `error.log`.
    - `scripts/install.ps1` sets strict NTFS ACLs via `icacls` on `%LOCALAPPDATA%\MedTRx` and program directories, restricting access strictly to the current user, SYSTEM, and Administrators.
+
+7. **Authenticode Code-Signing & Publisher Trust Automation (`scripts/sign_app.ps1`, `scripts/install.ps1`):**
+   - Automatically signs `dist/MedTRx.exe` and `WebView2Loader.dll` using SHA-256 Authenticode digital signature (`CN=MedTRx Healthcare Systems`).
+   - Exports `dist/MedTRx_Publisher.cer` and `assets/MedTRx_Publisher.cer`.
+   - `scripts/install.ps1` automatically executes `Unblock-File` on all deployed assets (neutralizing Windows Mark-of-the-Web / Zone.Identifier) and imports `MedTRx_Publisher.cer` into the `TrustedPublisher` and `Root` certificate stores.
+   - Eliminates Windows Defender SmartScreen "Unknown Publisher" block and displays verified publisher status across enterprise workstations and clinical carts.
+

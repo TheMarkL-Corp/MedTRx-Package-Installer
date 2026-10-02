@@ -108,6 +108,30 @@ scripts\uninstall.bat
 
 ---
 
+## Security & Code Signing
+
+MedTRx binaries are digitally signed with an Authenticode signature (`CN=MedTRx Healthcare Systems`).
+
+### Resolving "Unknown Publisher" / SmartScreen Warnings
+When downloading ZIP archives over the internet or intranet, Windows flags files with Mark-of-the-Web (MOTW).
+
+1. **Automated Setup (Recommended):**  
+   Run `install.bat` (or `install.ps1`). The installer automatically unblocks all files and registers `MedTRx_Publisher.cer` into the machine's Trusted Publishers store.
+2. **Domain / Hospital Fleet GPO Deployment:**  
+   IT administrators can silently deploy the public certificate across all AMiS medical carts using Group Policy or by running as Administrator:
+   ```cmd
+   certutil -addstore -f "Root" MedTRx_Publisher.cer
+   certutil -addstore -f "TrustedPublisher" MedTRx_Publisher.cer
+   ```
+3. **Manual File Unblock:**  
+   Right-click `MedTRx.exe` -> Properties -> check **Unblock** -> Apply; or run:
+   ```powershell
+   Get-ChildItem -Recurse | Unblock-File
+   ```
+
+---
+
 ## Documentation
 
 See [`PROJECT_MEMORY.md`](PROJECT_MEMORY.md) for full architectural documentation, design decisions, and technical specifications.
+

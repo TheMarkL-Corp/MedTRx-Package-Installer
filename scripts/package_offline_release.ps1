@@ -135,6 +135,7 @@ $AppFiles = @(
     "WebView2Loader.dll",
     "logo.ico",
     "config.json",
+    "MedTRx_Publisher.cer",
     "checksums.sha256",
     "ErrorPage.html",
     "install.bat",

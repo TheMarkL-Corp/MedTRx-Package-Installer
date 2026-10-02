@@ -200,23 +200,29 @@ if ($proc.ExitCode -ne 0) {
     exit $proc.ExitCode
 }
 
-# 7. Optional Authenticode Code Signing
-$SignTool = Get-Command "signtool.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
-if (-not $SignTool) {
-    $KitPaths = @(
-        "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe",
-        "${env:ProgramFiles}\Windows Kits\10\bin\*\x64\signtool.exe"
-    )
-    $SignTool = Resolve-Path $KitPaths -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -First 1
-}
+# 7. Authenticode Code Signing
+$SignScript = Join-Path $ScriptDir "sign_app.ps1"
+if (Test-Path $SignScript) {
+    Write-Host "[*] Invoking Authenticode signing engine..." -ForegroundColor Yellow
+    & $SignScript
+} else {
+    $SignTool = Get-Command "signtool.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1
+    if (-not $SignTool) {
+        $KitPaths = @(
+            "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe",
+            "${env:ProgramFiles}\Windows Kits\10\bin\*\x64\signtool.exe"
+        )
+        $SignTool = Resolve-Path $KitPaths -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -First 1
+    }
 
-if ($SignTool -and $env:SIGN_CERT_THUMBPRINT) {
-    Write-Host "[*] Signing binary with Authenticode certificate ($($env:SIGN_CERT_THUMBPRINT))..." -ForegroundColor Yellow
-    & $SignTool sign /sha1 $env:SIGN_CERT_THUMBPRINT /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "$OutputExe"
-} elseif ($SignTool -and $env:SIGN_CERT_PATH) {
-    Write-Host "[*] Signing binary with certificate file ($($env:SIGN_CERT_PATH))..." -ForegroundColor Yellow
-    $pwdArg = if ($env:SIGN_CERT_PASSWORD) { "/p `"$($env:SIGN_CERT_PASSWORD)`"" } else { "" }
-    & $SignTool sign /f "$($env:SIGN_CERT_PATH)" $pwdArg /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "$OutputExe"
+    if ($SignTool -and $env:SIGN_CERT_THUMBPRINT) {
+        Write-Host "[*] Signing binary with Authenticode certificate ($($env:SIGN_CERT_THUMBPRINT))..." -ForegroundColor Yellow
+        & $SignTool sign /sha1 $env:SIGN_CERT_THUMBPRINT /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "$OutputExe"
+    } elseif ($SignTool -and $env:SIGN_CERT_PATH) {
+        Write-Host "[*] Signing binary with certificate file ($($env:SIGN_CERT_PATH))..." -ForegroundColor Yellow
+        $pwdArg = if ($env:SIGN_CERT_PASSWORD) { "/p `"$($env:SIGN_CERT_PASSWORD)`"" } else { "" }
+        & $SignTool sign /f "$($env:SIGN_CERT_PATH)" $pwdArg /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "$OutputExe"
+    }
 }
 
 # 8. Generate SHA-256 Integrity Manifest
