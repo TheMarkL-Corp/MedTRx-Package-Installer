@@ -2,11 +2,11 @@
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("MedTRx")]
-[assembly: AssemblyDescription("MedTRx Healthcare Systems Desktop Application")]
+[assembly: AssemblyDescription("AMiS eMedication MedTRx Desktop Application")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("MedTRx Healthcare Systems")]
+[assembly: AssemblyCompany("Advantech Co Ltd")]
 [assembly: AssemblyProduct("MedTRx")]
-[assembly: AssemblyCopyright("Copyright (c) 2026 MedTRx Healthcare Systems")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 Advantech Co Ltd")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

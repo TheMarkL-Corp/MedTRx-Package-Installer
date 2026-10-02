@@ -110,7 +110,7 @@ scripts\uninstall.bat
 
 ## Security & Code Signing
 
-MedTRx binaries are digitally signed with an Authenticode signature (`CN=MedTRx Healthcare Systems`).
+MedTRx binaries are digitally signed with an Authenticode signature (`CN=AMiS eMedication MedTRx SW, O=Advantech Co Ltd, OU=AMiS MedTRx, C=TW`).
 
 ### Resolving "Unknown Publisher" / SmartScreen Warnings
 When downloading ZIP archives over the internet or intranet, Windows flags files with Mark-of-the-Web (MOTW).

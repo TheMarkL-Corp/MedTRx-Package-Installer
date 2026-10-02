@@ -8,8 +8,8 @@
 
 [CmdletBinding()]
 param(
-    [string]$Subject = "CN=MedTRx Healthcare Systems, O=MedTRx Healthcare Systems, OU=AMiS Cart Deployment, C=US",
-    [string]$FriendlyName = "MedTRx Code Signing Certificate",
+    [string]$Subject = "CN=AMiS eMedication MedTRx SW, O=Advantech Co Ltd, OU=AMiS MedTRx, C=TW",
+    [string]$FriendlyName = "AMiS eMedication MedTRx SW Code Signing Certificate",
     [string]$TimestampServer = "http://timestamp.digicert.com",
     [switch]$SkipTimestamp
 )
@@ -30,7 +30,7 @@ Write-Host "=================================================" -ForegroundColor 
 Write-Host "[*] Searching for existing MedTRx code-signing certificate..." -ForegroundColor Yellow
 
 $cert = Get-ChildItem -Path Cert:\CurrentUser\My, Cert:\LocalMachine\My -CodeSigningCert -Recurse -ErrorAction SilentlyContinue |
-    Where-Object { $_.Subject -match "MedTRx Healthcare Systems" -and $_.NotAfter -gt (Get-Date) } |
+    Where-Object { $_.Subject -match "AMiS eMedication MedTRx SW" -and $_.NotAfter -gt (Get-Date) } |
     Sort-Object NotAfter -Descending |
     Select-Object -First 1
 

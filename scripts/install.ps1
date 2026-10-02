@@ -271,7 +271,7 @@ try {
     Set-ItemProperty -Path $UninstallKey -Name "DisplayName" -Value "MedTRx Application"
     Set-ItemProperty -Path $UninstallKey -Name "DisplayIcon" -Value "$IconPath,0"
     Set-ItemProperty -Path $UninstallKey -Name "DisplayVersion" -Value $AppDisplayVer
-    Set-ItemProperty -Path $UninstallKey -Name "Publisher" -Value "MedTRx Healthcare Systems"
+    Set-ItemProperty -Path $UninstallKey -Name "Publisher" -Value "Advantech Co Ltd"
     Set-ItemProperty -Path $UninstallKey -Name "InstallLocation" -Value $InstallDir
     Set-ItemProperty -Path $UninstallKey -Name "UninstallString" -Value "`"$InstallDir\uninstall.bat`""
     Set-ItemProperty -Path $UninstallKey -Name "NoModify" -Value 1 -Type DWord
