@@ -945,10 +945,10 @@ namespace MedTRx
                 flex-direction: row-reverse;
             }
             #medtrx-touch-container.medtrx-collapsed-right {
-                transform: translateX(184px);
+                transform: translateX(192px);
             }
             #medtrx-touch-container.medtrx-collapsed-left {
-                transform: translateX(-184px);
+                transform: translateX(-192px);
             }
             #medtrx-touch-container.medtrx-dragging {
                 transition: none !important;
@@ -1011,7 +1011,7 @@ namespace MedTRx
 
             /* Liquid Frosted Glass Slide Panel */
             #medtrx-touch-panel {
-                width: 184px;
+                width: 192px;
                 background: rgba(15, 23, 42, 0.58);
                 backdrop-filter: blur(28px) saturate(210%);
                 -webkit-backdrop-filter: blur(28px) saturate(210%);
@@ -1044,6 +1044,7 @@ namespace MedTRx
                 align-items: center;
                 justify-content: center;
                 gap: 8px;
+                white-space: nowrap;
                 touch-action: manipulation;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.18);
                 transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1087,7 +1088,8 @@ namespace MedTRx
         var btnFullscreen = document.createElement('button');
         btnFullscreen.id = 'medtrx-btn-fullscreen';
         btnFullscreen.className = 'medtrx-glass-btn medtrx-glass-btn-primary';
-        btnFullscreen.innerHTML = isFullscreen ? '<span>🗗</span> Exit Full' : '<span>⛶</span> Fullscreen';
+        btnFullscreen.innerHTML = isFullscreen ? '<span>🗗</span> Exit Fullscreen' : '<span>⛶</span> Enter Fullscreen';
+        btnFullscreen.title = isFullscreen ? 'Exit Fullscreen (F11 or Esc)' : 'Enter Fullscreen (F11)';
 
         // 2. Secondary Row: Reload & Swap Corner
         var secRow = document.createElement('div');
@@ -1096,12 +1098,13 @@ namespace MedTRx
         var btnReload = document.createElement('button');
         btnReload.className = 'medtrx-glass-btn';
         btnReload.innerHTML = '🔄 Reload';
+        btnReload.title = 'Reload web page (F5)';
 
         var btnSwap = document.createElement('button');
         btnSwap.id = 'medtrx-btn-swap';
         btnSwap.className = 'medtrx-glass-btn';
-        btnSwap.innerHTML = '⇄ Side';
-        btnSwap.title = 'Swap between Left and Right edge';
+        btnSwap.innerHTML = (side === 'right' ? '← Dock Left' : 'Dock Right →');
+        btnSwap.title = (side === 'right' ? 'Move panel to left screen edge' : 'Move panel to right screen edge');
 
         secRow.appendChild(btnReload);
         secRow.appendChild(btnSwap);
@@ -1277,13 +1280,20 @@ namespace MedTRx
                 arrow.textContent = isExpanded ? '◀' : '▶';
             }
         }
+
+        var btnSwap = document.getElementById('medtrx-btn-swap');
+        if (btnSwap) {
+            btnSwap.innerHTML = (side === 'right' ? '← Dock Left' : 'Dock Right →');
+            btnSwap.title = (side === 'right' ? 'Move panel to left screen edge' : 'Move panel to right screen edge');
+        }
     }
 
     window.__medtrxSetFullscreenState = function(fullscreen) {
         isFullscreen = fullscreen;
         var btn = document.getElementById('medtrx-btn-fullscreen');
         if (btn) {
-            btn.innerHTML = isFullscreen ? '<span>🗗</span> Exit Full' : '<span>⛶</span> Fullscreen';
+            btn.innerHTML = isFullscreen ? '<span>🗗</span> Exit Fullscreen' : '<span>⛶</span> Enter Fullscreen';
+            btn.title = isFullscreen ? 'Exit Fullscreen (F11 or Esc)' : 'Enter Fullscreen (F11)';
         }
     };
 
