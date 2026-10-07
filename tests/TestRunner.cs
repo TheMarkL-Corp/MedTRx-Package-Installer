@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Web.Script.Serialization;
+using System.Windows.Forms;
 using MedTRx;
 
 namespace MedTRx.Tests
@@ -41,6 +42,14 @@ namespace MedTRx.Tests
             RunTest("Origin Authorization: Local ErrorPage.html Allowed", Test_Origin_LocalErrorPage_Allowed);
             RunTest("Origin Authorization: External Local Files Rejected", Test_Origin_ExternalLocalFile_Blocked);
             RunTest("System: Single Instance Mutex Creation & Detection", Test_SingleInstance_Mutex);
+            RunTest("HotkeyPolicy: Null Config Evaluates to None", Test_HotkeyPolicy_NullConfig);
+            RunTest("HotkeyPolicy: Master Toggle Disabled Suppresses Keys", Test_HotkeyPolicy_MasterToggle_Disabled);
+            RunTest("HotkeyPolicy: Caret Browsing Toggle (F7)", Test_HotkeyPolicy_CaretBrowsing);
+            RunTest("HotkeyPolicy: Fullscreen and Escape Toggles", Test_HotkeyPolicy_Fullscreen_And_Escape);
+            RunTest("HotkeyPolicy: Settings Hotkeys (F2 / Ctrl+,)", Test_HotkeyPolicy_SettingsKey);
+            RunTest("HotkeyPolicy: Reload Hotkeys (F5 / Ctrl+R)", Test_HotkeyPolicy_ReloadKey);
+            RunTest("HotkeyPolicy: DevTools Hotkey (F12)", Test_HotkeyPolicy_DevToolsKey);
+            RunTest("HotkeyPolicy: Browser Hotkeys & Other F-Keys", Test_HotkeyPolicy_OtherFKeys_And_Unhandled);
 
             Console.WriteLine("=================================================");
             Console.WriteLine(string.Format("  TEST RUN SUMMARY: {0} Passed, {1} Failed", passed, failed));
@@ -352,6 +361,183 @@ namespace MedTRx.Tests
                     Assert(!createdSecond, "Second mutex attempt must detect existing instance");
                 }
             }
+        }
+
+        private static void Test_HotkeyPolicy_NullConfig()
+        {
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.F11, false, false, null), "Null config returns None for F11");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.F2, false, false, null), "Null config returns None for F2");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Escape, false, true, null), "Null config returns None for Esc");
+        }
+
+        private static void Test_HotkeyPolicy_MasterToggle_Disabled()
+        {
+            var config = new AppConfig();
+            config.enableFunctionKeys = false;
+
+            // F1 through F12 must be suppressed
+            Keys[] fKeys = new Keys[] {
+                Keys.F1, Keys.F2, Keys.F3, Keys.F4, Keys.F5, Keys.F6,
+                Keys.F7, Keys.F8, Keys.F9, Keys.F10, Keys.F11, Keys.F12
+            };
+            foreach (Keys k in fKeys)
+            {
+                AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(k, false, false, config), "Master toggle off must suppress " + k);
+            }
+
+            // Escape when fullscreen must be suppressed
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.Escape, false, true, config), "Master toggle off must suppress Esc when fullscreen");
+
+            // Escape when NOT fullscreen is unhandled -> None
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Escape, false, false, config), "Master toggle off: Esc when not fullscreen returns None");
+
+            // Ctrl+R must be suppressed
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.R, true, false, config), "Master toggle off must suppress Ctrl+R");
+
+            // Ctrl+Oemcomma and Ctrl+(Keys)188 must be suppressed
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.Oemcomma, true, false, config), "Master toggle off must suppress Ctrl+,");
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate((Keys)188, true, false, config), "Master toggle off must suppress Ctrl+(Keys)188");
+
+            // Normal typing key must be None
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.A, false, false, config), "Master toggle off: Normal key returns None");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.R, false, false, config), "Master toggle off: R without Ctrl returns None");
+        }
+
+        private static void Test_HotkeyPolicy_CaretBrowsing()
+        {
+            var config = new AppConfig();
+            config.enableFunctionKeys = true;
+
+            // Default: disableCaretBrowsing = true -> F7 is Suppress
+            AssertEqual(true, config.disableCaretBrowsing, "Default disableCaretBrowsing must be true");
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F7, false, false, config), "F7 suppressed when disableCaretBrowsing is true");
+
+            // disableCaretBrowsing = true even with enableBrowserHotkeys = true -> F7 is Suppress
+            config.enableBrowserHotkeys = true;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F7, false, false, config), "F7 suppressed even if enableBrowserHotkeys is true");
+
+            // disableCaretBrowsing = false, enableBrowserHotkeys = false -> F7 is Suppress (via other F-keys rule)
+            config.disableCaretBrowsing = false;
+            config.enableBrowserHotkeys = false;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F7, false, false, config), "F7 suppressed when browser hotkeys disabled");
+
+            // disableCaretBrowsing = false, enableBrowserHotkeys = true -> F7 is None (let browser handle it)
+            config.disableCaretBrowsing = false;
+            config.enableBrowserHotkeys = true;
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.F7, false, false, config), "F7 allowed (None) when disableCaretBrowsing is false and browser hotkeys enabled");
+        }
+
+        private static void Test_HotkeyPolicy_Fullscreen_And_Escape()
+        {
+            var config = new AppConfig();
+            config.enableFunctionKeys = true;
+            config.enableF11FullscreenKey = true;
+
+            // F11 toggles fullscreen
+            AssertEqual(HotkeyAction.ToggleFullscreen, HotkeyPolicy.Evaluate(Keys.F11, false, false, config), "F11 returns ToggleFullscreen when enabled");
+            AssertEqual(HotkeyAction.ToggleFullscreen, HotkeyPolicy.Evaluate(Keys.F11, false, true, config), "F11 returns ToggleFullscreen when fullscreen and enabled");
+
+            // Esc exits fullscreen if fullscreen is true
+            AssertEqual(HotkeyAction.ExitFullscreen, HotkeyPolicy.Evaluate(Keys.Escape, false, true, config), "Esc returns ExitFullscreen when fullscreen and enabled");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Escape, false, false, config), "Esc returns None when not fullscreen");
+
+            // When enableF11FullscreenKey = false
+            config.enableF11FullscreenKey = false;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F11, false, false, config), "F11 returns Suppress when enableF11FullscreenKey is false");
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.Escape, false, true, config), "Esc returns Suppress when fullscreen and enableF11FullscreenKey is false");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Escape, false, false, config), "Esc returns None when not fullscreen even if enableF11FullscreenKey is false");
+        }
+
+        private static void Test_HotkeyPolicy_SettingsKey()
+        {
+            var config = new AppConfig();
+            config.enableFunctionKeys = true;
+            config.enableF2SettingsKey = true;
+            config.lockSettings = false;
+
+            // F2 and Ctrl+, show settings
+            AssertEqual(HotkeyAction.ShowSettings, HotkeyPolicy.Evaluate(Keys.F2, false, false, config), "F2 returns ShowSettings when enabled and unlocked");
+            AssertEqual(HotkeyAction.ShowSettings, HotkeyPolicy.Evaluate(Keys.Oemcomma, true, false, config), "Ctrl+Oemcomma returns ShowSettings when enabled and unlocked");
+            AssertEqual(HotkeyAction.ShowSettings, HotkeyPolicy.Evaluate((Keys)188, true, false, config), "Ctrl+188 returns ShowSettings when enabled and unlocked");
+
+            // Oemcomma without Ctrl returns None
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Oemcomma, false, false, config), "Comma without Ctrl returns None");
+
+            // When enableF2SettingsKey is false
+            config.enableF2SettingsKey = false;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F2, false, false, config), "F2 returns Suppress when enableF2SettingsKey is false");
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.Oemcomma, true, false, config), "Ctrl+, returns Suppress when enableF2SettingsKey is false");
+
+            // When lockSettings is true (even if enableF2SettingsKey is true)
+            config.enableF2SettingsKey = true;
+            config.lockSettings = true;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F2, false, false, config), "F2 returns Suppress when lockSettings is true");
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.Oemcomma, true, false, config), "Ctrl+, returns Suppress when lockSettings is true");
+        }
+
+        private static void Test_HotkeyPolicy_ReloadKey()
+        {
+            var config = new AppConfig();
+            config.enableFunctionKeys = true;
+            config.enableNavigationKeys = true;
+
+            // F5 and Ctrl+R reload
+            AssertEqual(HotkeyAction.Reload, HotkeyPolicy.Evaluate(Keys.F5, false, false, config), "F5 returns Reload when enableNavigationKeys is true");
+            AssertEqual(HotkeyAction.Reload, HotkeyPolicy.Evaluate(Keys.R, true, false, config), "Ctrl+R returns Reload when enableNavigationKeys is true");
+
+            // When enableNavigationKeys is false
+            config.enableNavigationKeys = false;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F5, false, false, config), "F5 returns Suppress when enableNavigationKeys is false");
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.R, true, false, config), "Ctrl+R returns Suppress when enableNavigationKeys is false");
+
+            // R without Ctrl returns None
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.R, false, false, config), "R without Ctrl returns None");
+        }
+
+        private static void Test_HotkeyPolicy_DevToolsKey()
+        {
+            var config = new AppConfig();
+            config.enableFunctionKeys = true;
+            config.enableDevTools = true;
+            config.lockSettings = false;
+
+            // F12 opens dev tools
+            AssertEqual(HotkeyAction.OpenDevTools, HotkeyPolicy.Evaluate(Keys.F12, false, false, config), "F12 returns OpenDevTools when enabled and unlocked");
+
+            // When enableDevTools is false
+            config.enableDevTools = false;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F12, false, false, config), "F12 returns Suppress when enableDevTools is false");
+
+            // When lockSettings is true (even if enableDevTools is true)
+            config.enableDevTools = true;
+            config.lockSettings = true;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F12, false, false, config), "F12 returns Suppress when lockSettings is true");
+        }
+
+        private static void Test_HotkeyPolicy_OtherFKeys_And_Unhandled()
+        {
+            var config = new AppConfig();
+            config.enableFunctionKeys = true;
+            config.enableBrowserHotkeys = false;
+
+            Keys[] otherFKeys = new Keys[] { Keys.F1, Keys.F3, Keys.F4, Keys.F6, Keys.F8, Keys.F9, Keys.F10 };
+            foreach (Keys k in otherFKeys)
+            {
+                AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(k, false, false, config), k + " returns Suppress when enableBrowserHotkeys is false");
+            }
+
+            // When enableBrowserHotkeys is true
+            config.enableBrowserHotkeys = true;
+            foreach (Keys k in otherFKeys)
+            {
+                AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(k, false, false, config), k + " returns None when enableBrowserHotkeys is true");
+            }
+
+            // Unhandled keys return None
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.A, false, false, config), "Keys.A returns None");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Tab, false, false, config), "Keys.Tab returns None");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Space, false, false, config), "Keys.Space returns None");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.B, true, false, config), "Ctrl+B returns None");
         }
     }
 }

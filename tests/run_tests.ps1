@@ -69,6 +69,7 @@ $RspLines = @(
     "/out:`"$TestExe`"",
     "`"$(Join-Path $ProjectDir 'src\AssemblyInfo.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\ConfigManager.cs')`"",
+    "`"$(Join-Path $ProjectDir 'src\HotkeyPolicy.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\Program.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\MainForm.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\PdfViewerForm.cs')`"",

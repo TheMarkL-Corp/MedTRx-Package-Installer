@@ -187,7 +187,8 @@ $RspLines = @(
     "`"$(Join-Path $ProjectDir 'src\MainForm.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\PdfViewerForm.cs')`"",
     "`"$(Join-Path $ProjectDir 'src\SettingsForm.cs')`"",
-    "`"$(Join-Path $ProjectDir 'src\ConfigManager.cs')`""
+    "`"$(Join-Path $ProjectDir 'src\ConfigManager.cs')`"",
+    "`"$(Join-Path $ProjectDir 'src\HotkeyPolicy.cs')`""
 )
 
 [System.IO.File]::WriteAllLines($RspFile, $RspLines)
