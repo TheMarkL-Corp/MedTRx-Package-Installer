@@ -4,7 +4,6 @@
   "startFullscreen": false,
   "startMaximized": true,
   "enableDevTools": false,
-  "enableNavigationKeys": true,
   "zoomFactor": 1.0,
   "allowExternalLinks": true,
   "turboMode": true,
