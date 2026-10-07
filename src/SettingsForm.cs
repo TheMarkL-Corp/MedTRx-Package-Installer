@@ -155,7 +155,7 @@ namespace MedTRx
             this.Controls.Add(chkFunctionKeys);
 
             chkF11Fullscreen = new CheckBox();
-            chkF11Fullscreen.Text = "Allow F11 & Esc (Fullscreen & Kiosk Toggle)";
+            chkF11Fullscreen.Text = "Allow F11 Fullscreen Toggle (Esc always exits)";
             chkF11Fullscreen.Location = new Point(40, startY + 254);
             chkF11Fullscreen.AutoSize = true;
             chkF11Fullscreen.Checked = Config.enableF11FullscreenKey;

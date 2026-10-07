@@ -23,6 +23,13 @@ namespace MedTRx
                 return HotkeyAction.None;
             }
 
+            // Safety Invariant: Escape in fullscreen mode must always exit fullscreen
+            // to prevent kiosk entrapment, regardless of master or granular hotkey toggles.
+            if (isFullscreen && keyCode == Keys.Escape)
+            {
+                return HotkeyAction.ExitFullscreen;
+            }
+
             // 2. Caret Browsing check
             if (config.disableCaretBrowsing && keyCode == Keys.F7)
             {
@@ -33,7 +40,6 @@ namespace MedTRx
             if (!config.enableFunctionKeys)
             {
                 if ((keyCode >= Keys.F1 && keyCode <= Keys.F12) ||
-                    (keyCode == Keys.Escape && isFullscreen) ||
                     (ctrl && keyCode == Keys.R) ||
                     (ctrl && (keyCode == Keys.Oemcomma || keyCode == (Keys)188)))
                 {
@@ -51,16 +57,6 @@ namespace MedTRx
                 if (config.enableF11FullscreenKey)
                 {
                     return HotkeyAction.ToggleFullscreen;
-                }
-                return HotkeyAction.Suppress;
-            }
-
-            // Exit fullscreen: Escape when isFullscreen is true
-            if (keyCode == Keys.Escape && isFullscreen)
-            {
-                if (config.enableF11FullscreenKey)
-                {
-                    return HotkeyAction.ExitFullscreen;
                 }
                 return HotkeyAction.Suppress;
             }

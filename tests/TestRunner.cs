@@ -386,8 +386,8 @@ namespace MedTRx.Tests
                 AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(k, false, false, config), "Master toggle off must suppress " + k);
             }
 
-            // Escape when fullscreen must be suppressed
-            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.Escape, false, true, config), "Master toggle off must suppress Esc when fullscreen");
+            // Escape when fullscreen must ALWAYS return ExitFullscreen (safety invariant) even when enableFunctionKeys is false
+            AssertEqual(HotkeyAction.ExitFullscreen, HotkeyPolicy.Evaluate(Keys.Escape, false, true, config), "Master toggle off: Esc when fullscreen must always exit fullscreen as safety invariant");
 
             // Escape when NOT fullscreen is unhandled -> None
             AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Escape, false, false, config), "Master toggle off: Esc when not fullscreen returns None");
@@ -445,8 +445,14 @@ namespace MedTRx.Tests
             // When enableF11FullscreenKey = false
             config.enableF11FullscreenKey = false;
             AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F11, false, false, config), "F11 returns Suppress when enableF11FullscreenKey is false");
-            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.Escape, false, true, config), "Esc returns Suppress when fullscreen and enableF11FullscreenKey is false");
+            // Safety Invariant: Esc in fullscreen mode must ALWAYS exit fullscreen even when enableF11FullscreenKey is false
+            AssertEqual(HotkeyAction.ExitFullscreen, HotkeyPolicy.Evaluate(Keys.Escape, false, true, config), "Esc returns ExitFullscreen when fullscreen even if enableF11FullscreenKey is false");
             AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Escape, false, false, config), "Esc returns None when not fullscreen even if enableF11FullscreenKey is false");
+
+            // When both enableFunctionKeys = false and enableF11FullscreenKey = false
+            config.enableFunctionKeys = false;
+            AssertEqual(HotkeyAction.ExitFullscreen, HotkeyPolicy.Evaluate(Keys.Escape, false, true, config), "Esc returns ExitFullscreen when fullscreen even if both enableFunctionKeys and enableF11FullscreenKey are false");
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Escape, false, false, config), "Esc returns None when not fullscreen even if both toggles are false");
         }
 
         private static void Test_HotkeyPolicy_SettingsKey()
