@@ -108,6 +108,23 @@ namespace MedTRx
                         "--disable-background-timer-throttling";
                 }
 
+                // Caret Browsing Suppression: Layer 1 - Chromium feature flag switch
+                if (config.disableCaretBrowsing)
+                {
+                    if (options == null)
+                    {
+                        options = new CoreWebView2EnvironmentOptions();
+                    }
+                    if (string.IsNullOrEmpty(options.AdditionalBrowserArguments))
+                    {
+                        options.AdditionalBrowserArguments = "--disable-features=CaretBrowsing";
+                    }
+                    else
+                    {
+                        options.AdditionalBrowserArguments += " --disable-features=CaretBrowsing";
+                    }
+                }
+
                 // CoreWebView2Environment with isolated user data folder and optional turbo args
                 var env = await CoreWebView2Environment.CreateAsync(browserExecutableFolder, userDataFolder, options);
                 await webView.EnsureCoreWebView2Async(env);
@@ -118,6 +135,7 @@ namespace MedTRx
                 settings.IsStatusBarEnabled = false;
                 settings.IsZoomControlEnabled = true;
                 settings.AreDefaultContextMenusEnabled = true;
+                settings.AreBrowserAcceleratorKeysEnabled = config.enableBrowserHotkeys;
 
                 // Turbocharger DOM acceleration injection
                 try
@@ -132,6 +150,18 @@ namespace MedTRx
                     );
                 }
                 catch { }
+
+                // Caret Browsing Suppression: Layer 3 - DOM Keydown Event Trap
+                if (config.disableCaretBrowsing)
+                {
+                    try
+                    {
+                        await webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                            "(function() { window.addEventListener('keydown', function(e) { if (e.key === 'F7' || e.keyCode === 118) { e.preventDefault(); e.stopPropagation(); } }, true); })();"
+                        );
+                    }
+                    catch { }
+                }
 
                 // Touchscreen Fullscreen Sidebar injection
                 if (config.touchFullscreenSidebar)

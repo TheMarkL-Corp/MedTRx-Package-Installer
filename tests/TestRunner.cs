@@ -50,6 +50,7 @@ namespace MedTRx.Tests
             RunTest("HotkeyPolicy: Reload Hotkeys (F5 / Ctrl+R)", Test_HotkeyPolicy_ReloadKey);
             RunTest("HotkeyPolicy: DevTools Hotkey (F12)", Test_HotkeyPolicy_DevToolsKey);
             RunTest("HotkeyPolicy: Browser Hotkeys & Other F-Keys", Test_HotkeyPolicy_OtherFKeys_And_Unhandled);
+            RunTest("HotkeyPolicy: Caret Browsing Multi-Layer Policy", Test_CaretBrowsing_MultiLayerPolicy);
 
             Console.WriteLine("=================================================");
             Console.WriteLine(string.Format("  TEST RUN SUMMARY: {0} Passed, {1} Failed", passed, failed));
@@ -538,6 +539,28 @@ namespace MedTRx.Tests
             AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Tab, false, false, config), "Keys.Tab returns None");
             AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.Space, false, false, config), "Keys.Space returns None");
             AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.B, true, false, config), "Ctrl+B returns None");
+        }
+
+        private static void Test_CaretBrowsing_MultiLayerPolicy()
+        {
+            var config = new AppConfig();
+            config.enableFunctionKeys = true;
+
+            // Layer 1 & Policy: When disableCaretBrowsing = true, F7 must always return Suppress regardless of enableBrowserHotkeys
+            config.disableCaretBrowsing = true;
+            config.enableBrowserHotkeys = false;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F7, false, false, config), "F7 returns Suppress when disableCaretBrowsing is true and enableBrowserHotkeys is false");
+
+            config.enableBrowserHotkeys = true;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F7, false, false, config), "F7 returns Suppress when disableCaretBrowsing is true even if enableBrowserHotkeys is true");
+
+            // When disableCaretBrowsing = false, F7 behavior is determined by enableBrowserHotkeys
+            config.disableCaretBrowsing = false;
+            config.enableBrowserHotkeys = false;
+            AssertEqual(HotkeyAction.Suppress, HotkeyPolicy.Evaluate(Keys.F7, false, false, config), "F7 returns Suppress when disableCaretBrowsing is false and enableBrowserHotkeys is false");
+
+            config.enableBrowserHotkeys = true;
+            AssertEqual(HotkeyAction.None, HotkeyPolicy.Evaluate(Keys.F7, false, false, config), "F7 returns None when disableCaretBrowsing is false and enableBrowserHotkeys is true");
         }
     }
 }
