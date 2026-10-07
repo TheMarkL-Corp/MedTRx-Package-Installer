@@ -77,15 +77,22 @@ The configuration file is formatted as standard JSON. It can be placed directly 
   "appName": "MedTRx",
   "startFullscreen": false,
   "startMaximized": true,
-  "enableDevTools": false,
+  "enableFunctionKeys": true,
+  "enableF11FullscreenKey": true,
+  "enableF2SettingsKey": true,
   "enableNavigationKeys": true,
+  "enableBrowserHotkeys": false,
+  "disableCaretBrowsing": true,
+  "enableDevTools": false,
   "zoomFactor": 1.0,
   "allowExternalLinks": true,
   "turboMode": true,
   "autoOpenPdf": true,
   "pdfViewerMode": "embedded",
   "alwaysOnTop": false,
-  "touchFullscreenSidebar": true
+  "touchFullscreenSidebar": true,
+  "lockSettings": false,
+  "adminPassword": ""
 }
 ```
 
@@ -96,22 +103,38 @@ The configuration file is formatted as standard JSON. It can be placed directly 
 | `appName` | `string` | `"MedTRx"` | Name displayed in window title bar and taskbar. |
 | `startFullscreen` | `bool` | `false` | When `true`, opens immediately in borderless fullscreen/kiosk mode. |
 | `startMaximized` | `bool` | `true` | When `true`, opens in maximized windowed mode. |
-| `alwaysOnTop` | `bool` | `false` | When `true`, keeps MedTRx pinned on top of all Windows taskbars and other windows. Child windows (PDF Viewer & Settings) automatically inherit TopMost priority above the main window. |
-| `touchFullscreenSidebar` | `bool` | `true` | When `true`, displays a covert, liquid frosted glass slide-out tab with touch vertical edge-dragging (repositionable at any height) and 1-touch fullscreen toggling. |
-| `enableDevTools` | `bool` | `false` | Enables `F12` Edge Chromium Developer Tools (set to `false` in production). |
-| `enableNavigationKeys` | `bool` | `true` | Enables `F5` / `Ctrl+R` page reload and browser navigation shortcuts. |
+| `enableFunctionKeys` | `bool` | `true` | Master toggle for application-level function hotkeys. When `false`, all function keys (`F1`–`F12`) and navigation shortcuts are disabled. |
+| `enableF11FullscreenKey` | `bool` | `true` | When `true` (and `enableFunctionKeys` is `true`), allows `F11` to toggle borderless fullscreen / kiosk mode. Note: `Esc` always returns to windowed mode when currently in fullscreen. |
+| `enableF2SettingsKey` | `bool` | `true` | When `true` (and `enableFunctionKeys` is `true`), allows `F2` / `Ctrl+,` to open the configuration dialog (subject to `lockSettings`). |
+| `enableNavigationKeys` | `bool` | `true` | When `true` (and `enableFunctionKeys` is `true`), allows `F5` / `Ctrl+R` to reload the page. |
+| `enableBrowserHotkeys` | `bool` | `false` | When `true` (and `enableFunctionKeys` is `true`), permits generic browser keys (`F1` Help, `F3` Find, `F6` Focus address, etc.). When `false`, suppresses them to prevent kiosk breakout. |
+| `disableCaretBrowsing` | `bool` | `true` | When `true`, suppresses Microsoft Edge / Chromium Caret Browsing modal prompt (`F7`) through multi-layer defense. |
+| `enableDevTools` | `bool` | `false` | Enables `F12` Edge Chromium Developer Tools (set to `false` in production; forced `false` when `lockSettings` is `true`). |
 | `zoomFactor` | `number` | `1.0` | Default UI zoom ratio (e.g. `1.1` for 110% magnification). |
 | `allowExternalLinks` | `bool` | `true` | When `true`, external popups open in system browser rather than hijacking cart. |
+| `turboMode` | `bool` | `true` | Performance optimizations for WebView2 rendering and cart response. |
+| `autoOpenPdf` | `bool` | `true` | Automatically opens clinical PDF downloads in embedded viewer. |
+| `pdfViewerMode` | `string` | `"embedded"` | Viewer mode for PDFs (`"embedded"` or `"system"`). |
+| `alwaysOnTop` | `bool` | `false` | When `true`, keeps MedTRx pinned on top of all Windows taskbars and other windows. Child windows (PDF Viewer & Settings) automatically inherit TopMost priority above the main window. |
+| `touchFullscreenSidebar` | `bool` | `true` | When `true`, displays a covert, liquid frosted glass slide-out tab with touch vertical edge-dragging (repositionable at any height) and 1-touch fullscreen toggling. |
+| `lockSettings` | `bool` | `false` | When `true`, locks the configuration dialog with optional `adminPassword` and forces `enableDevTools` to `false`. |
+| `adminPassword` | `string` | `""` | Administrator password required to unlock settings dialog when `lockSettings` is `true`. |
 
 ---
 
 ## 4. In-App Hotkeys & Navigation
 
-- **`F11`**: Toggle borderless fullscreen / windowed mode.
-- **`Esc`**: Exit fullscreen mode back to windowed mode.
-- **`F5` / `Ctrl + R`**: Reload current web application.
-- **`F2` / `Ctrl + ,`**: Open the in-app Configuration & Server URL dialog.
-- **`F12`**: Open Chromium DevTools (only when `enableDevTools` is `true`).
+MedTRx implements a dual-layer keyboard interception architecture evaluated via the pure `HotkeyPolicy` decision engine (`HotkeyPolicy.Evaluate(...)`), capturing keystrokes in both native WinForms (`ProcessCmdKey`) and the embedded WebView2 engine (`AcceleratorKeyPressed`):
+
+| Key / Shortcut | Policy Rule | Config Flags | Default Action |
+| :--- | :--- | :--- | :--- |
+| **`F11`** | `ToggleFullscreen` | `enableFunctionKeys && enableF11FullscreenKey` | Toggle borderless fullscreen / kiosk mode. |
+| **`Esc`** | `ExitFullscreen` | (Active only when `IsFullscreen`) | Exit fullscreen mode back to windowed mode (always allowed for safety). |
+| **`F5`** / **`Ctrl + R`** | `Reload` | `enableFunctionKeys && enableNavigationKeys` | Reload current web application. |
+| **`F2`** / **`Ctrl + ,`** | `OpenSettings` | `enableFunctionKeys && enableF2SettingsKey` | Open in-app Configuration dialog (prompts for admin password if `lockSettings`). |
+| **`F12`** | `ToggleDevTools` | `enableDevTools && !lockSettings` | Open Chromium Developer Tools (forced off when locked). |
+| **`F7`** | `SuppressCaretBrowsing` | `disableCaretBrowsing` | Suppress Caret Browsing dialogue modal across all frames. |
+| **`F1`, `F3`, `F6`, etc.** | `PassThrough` or `Suppress` | `enableBrowserHotkeys` | Pass through if allowed; suppressed when `enableBrowserHotkeys: false`. |
 
 ---
 
@@ -207,4 +230,23 @@ For military hospital workstations, AMiS medical carts, and air-gapped clinical 
    - Exports `dist/MedTRx_Publisher.cer` and `assets/MedTRx_Publisher.cer`.
    - `scripts/install.ps1` automatically executes `Unblock-File` on all deployed assets (neutralizing Windows Mark-of-the-Web / Zone.Identifier) and imports `MedTRx_Publisher.cer` into the `TrustedPublisher` and `Root` certificate stores.
    - Eliminates Windows Defender SmartScreen "Unknown Publisher" block and displays verified publisher status across enterprise workstations and clinical carts.
+
+---
+
+## 9. Multi-Layer Caret Browsing (F7) Suppression & Hierarchical Hotkeys
+
+### Multi-Layer Caret Browsing Defense
+In clinical environments, accidental or inadvertent pressing of `F7` triggers Edge/Chromium's "Turn on caret browsing?" modal dialog. In kiosk mode or touch carts, this prompt disrupts clinical workflows and can lead to unintended UI states. MedTRx neutralizes Caret Browsing through a three-layer defense in depth:
+
+1. **Chromium Engine Flag:** During WebView2 environment initialization (`MainForm.InitWebView`), MedTRx appends `--disable-features=CaretBrowsing` to `CoreWebView2EnvironmentOptions.AdditionalBrowserArguments`.
+2. **DOM-Level Event Capture Injection:** In `InitWebViewEvents()`, MedTRx registers an asynchronous pre-navigation script via `CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync`. This script listens in the capture phase (`addEventListener('keydown'/'keyup', ..., true)`) on all windows and embedded `<iframe>` elements. When `e.key === 'F7'` or `e.keyCode === 118` is detected, it immediately invokes `e.preventDefault()` and `e.stopPropagation()`.
+3. **Host-Level Accelerator Interception:** Keystrokes reaching the native message loop are intercepted at both `CoreWebView2.AcceleratorKeyPressed` and `Form.ProcessCmdKey` via `HotkeyPolicy.Evaluate(...)`. When `disableCaretBrowsing` is active, `F7` evaluates to `HotkeyAction.SuppressCaretBrowsing` and is flagged as handled (`e.Handled = true`), preventing default Chromium routing.
+
+### Hierarchical Settings Dialog UI
+The configuration dialog (`SettingsForm.cs`) arranges hotkey management in a structured, hierarchical layout:
+- **Master Hotkey Toggle (`enableFunctionKeys`):** Top-level checkbox controls all application function keys.
+- **Granular Child Controls:** Sub-checkboxes for `enableF11FullscreenKey`, `enableF2SettingsKey`, `enableNavigationKeys`, and `enableBrowserHotkeys` are visually indented under the master toggle.
+- **Dynamic State Cascading:** Unchecking the master toggle automatically disables all child checkboxes, visually signaling that the entire hotkey subsystem is deactivated while preserving the user's granular preferences.
+- **Dedicated Caret Browsing Toggle (`disableCaretBrowsing`):** Allows administrators to toggle F7 suppression independently.
+
 

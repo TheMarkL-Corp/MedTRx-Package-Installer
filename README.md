@@ -45,7 +45,14 @@ Open `config.json` (or `dist\config.json`) and set your server URL:
   "url": "https://your-medtrx-server.hospital.com",
   "appName": "MedTRx",
   "startFullscreen": false,
-  "startMaximized": true
+  "startMaximized": true,
+  "enableFunctionKeys": true,
+  "enableF11FullscreenKey": true,
+  "enableF2SettingsKey": true,
+  "enableNavigationKeys": true,
+  "enableBrowserHotkeys": false,
+  "disableCaretBrowsing": true,
+  "enableDevTools": false
 }
 ```
 *(If you leave `"url": ""` empty, MedTRx will prompt you with a configuration dialog on launch).*
@@ -78,15 +85,25 @@ This script automatically:
 
 ---
 
-## Keyboard Shortcuts
+## Hotkey Management & Keyboard Shortcuts
 
-| Key | Function |
-| :--- | :--- |
-| **`F11`** | Toggle Fullscreen / Kiosk Mode |
-| **`Esc`** | Exit Fullscreen Mode back to windowed |
-| **`F5`** / **`Ctrl + R`** | Reload current web application |
-| **`F2`** / **`Ctrl + ,`** | Open Application Configuration Dialog |
-| **`F12`** | Open Developer Tools *(if `enableDevTools: true`)* |
+MedTRx features a centralized keyboard policy engine with master and granular controls configured via `config.json` or the **Settings Dialog (`F2`)**:
+
+| Key | Config Toggle | Default Action & Behavior |
+| :--- | :--- | :--- |
+| **`F11`** | `enableF11FullscreenKey` | Toggle Fullscreen / Kiosk Mode (requires master `enableFunctionKeys`). |
+| **`Esc`** | *(Safety invariant)* | Exit Fullscreen Mode back to windowed (always enabled in fullscreen). |
+| **`F5`** / **`Ctrl + R`** | `enableNavigationKeys` | Reload current web application (requires master `enableFunctionKeys`). |
+| **`F2`** / **`Ctrl + ,`** | `enableF2SettingsKey` | Open In-App Configuration Dialog (requires master `enableFunctionKeys`; password-protected if `lockSettings`). |
+| **`F12`** | `enableDevTools` | Open Chromium Developer Tools (disabled if `lockSettings`). |
+| **`F7`** | `disableCaretBrowsing` | **Caret Browsing Suppression** (Active by default; blocked via CLI, DOM script injection, and accelerator interceptor). |
+| **`F1`, `F3`, `F6`, etc.** | `enableBrowserHotkeys` | Browser Shortcuts (Default `false` to prevent kiosk breakout; allow when set to `true`). |
+
+### Hierarchical Settings Dialog UI
+Press `F2` or `Ctrl + ,` to open the configuration dialog:
+- **Master Hotkey Switch:** Toggling "Enable Function Hotkeys (F1-F12)" on/off dynamically enables or disables all child hotkey checkboxes.
+- **Granular Controls:** Independently configure Fullscreen (F11), Settings (F2), Navigation (F5), and Browser Hotkeys.
+- **Caret Browsing Protection:** Toggle "Suppress Caret Browsing (F7)" to prevent Edge's caret browsing confirmation modal from popping up during clinical cart operations.
 
 ---
 

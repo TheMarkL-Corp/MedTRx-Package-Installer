@@ -6,7 +6,8 @@
 
 [CmdletBinding()]
 param(
-    [string]$PackageVersion = "1.0.2903.40"
+    [string]$PackageVersion = "1.0.2903.40",
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,7 +34,9 @@ Write-Host "[+] Found C# Compiler: $CscPath" -ForegroundColor Green
 # 2. Determine App Version from VERSION file
 $VersionFile = Join-Path $ProjectDir "VERSION"
 $AppVersion = "1.0.3"
-if (Test-Path $VersionFile) {
+if ($Version) {
+    $AppVersion = $Version
+} elseif (Test-Path $VersionFile) {
     $AppVersion = (Get-Content $VersionFile -Raw).Trim()
 }
 Write-Host "[+] MedTRx Application Version: $AppVersion" -ForegroundColor Green

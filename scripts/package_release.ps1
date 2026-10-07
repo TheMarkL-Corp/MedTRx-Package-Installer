@@ -28,7 +28,7 @@ Write-Host "=================================================" -ForegroundColor 
 
 # 1. Verify / Trigger Build to ensure binary has matching version
 Write-Host "[*] Compiling MedTRx.exe with version $Version..." -ForegroundColor Yellow
-& (Join-Path $ScriptDir "build.ps1")
+& (Join-Path $ScriptDir "build.ps1") -Version $Version
 
 # 2. Ensure release directory exists
 if (-not (Test-Path $ReleaseDir)) {

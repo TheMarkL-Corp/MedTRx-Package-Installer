@@ -33,7 +33,7 @@ Write-Host "=================================================" -ForegroundColor 
 
 # 1. Compile MedTRx with accurate stamped version
 Write-Host "[*] Compiling MedTRx with version $Version..." -ForegroundColor Yellow
-& (Join-Path $ScriptDir "build.ps1")
+& (Join-Path $ScriptDir "build.ps1") -Version $Version
 
 if (-not (Test-Path $CacheDir)) { New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null }
 if (-not (Test-Path $ReleaseDir)) { New-Item -ItemType Directory -Path $ReleaseDir -Force | Out-Null }

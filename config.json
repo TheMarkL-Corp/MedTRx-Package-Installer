@@ -12,6 +12,12 @@
   "pdfViewerMode": "embedded",
   "alwaysOnTop": false,
   "touchFullscreenSidebar": true,
+  "enableFunctionKeys": true,
+  "enableF11FullscreenKey": true,
+  "enableF2SettingsKey": true,
+  "enableNavigationKeys": true,
+  "enableBrowserHotkeys": false,
+  "disableCaretBrowsing": true,
   "lockSettings": false,
   "adminPassword": ""
 }
