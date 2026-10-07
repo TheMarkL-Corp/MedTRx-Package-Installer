@@ -20,6 +20,8 @@ namespace MedTRx.Tests
 
             RunTest("AppConfig: Default Values", Test_AppConfig_Defaults);
             RunTest("AppConfig: JSON Serialization Roundtrip", Test_AppConfig_Serialization_RoundTrip);
+            RunTest("AppConfig: Hotkey Defaults", Test_AppConfig_HotkeyDefaults);
+            RunTest("AppConfig: Hotkey Serialization", Test_AppConfig_HotkeySerialization);
             RunTest("AppConfig: LockSettings and DevTools Flag Enforcement", Test_AppConfig_LockSettings_Flag);
             RunTest("Security Log Sanitization: URL Query Parameter Redaction", Test_Sanitize_UrlQueryParameters);
             RunTest("Security Log Sanitization: Bearer Token Redaction", Test_Sanitize_BearerToken);
@@ -124,6 +126,47 @@ namespace MedTRx.Tests
             AssertEqual(original.adminPassword, deserialized.adminPassword, "adminPassword match");
             AssertEqual(original.enableDevTools, deserialized.enableDevTools, "enableDevTools match");
             AssertEqual(original.zoomFactor, deserialized.zoomFactor, "zoomFactor match");
+        }
+
+        private static void Test_AppConfig_HotkeyDefaults()
+        {
+            var config = new AppConfig();
+            AssertEqual(true, config.enableFunctionKeys, "Default enableFunctionKeys must be true");
+            AssertEqual(true, config.enableF2SettingsKey, "Default enableF2SettingsKey must be true");
+            AssertEqual(true, config.enableF11FullscreenKey, "Default enableF11FullscreenKey must be true");
+            AssertEqual(false, config.enableBrowserHotkeys, "Default enableBrowserHotkeys must be false");
+            AssertEqual(true, config.disableCaretBrowsing, "Default disableCaretBrowsing must be true");
+        }
+
+        private static void Test_AppConfig_HotkeySerialization()
+        {
+            var original = new AppConfig();
+            original.enableFunctionKeys = false;
+            original.enableF2SettingsKey = false;
+            original.enableF11FullscreenKey = false;
+            original.enableBrowserHotkeys = true;
+            original.disableCaretBrowsing = false;
+
+            var serializer = new JavaScriptSerializer();
+            string json = serializer.Serialize(original);
+            var deserialized = serializer.Deserialize<AppConfig>(json);
+
+            Assert(deserialized != null, "Deserialized config must not be null");
+            AssertEqual(false, deserialized.enableFunctionKeys, "enableFunctionKeys roundtrip");
+            AssertEqual(false, deserialized.enableF2SettingsKey, "enableF2SettingsKey roundtrip");
+            AssertEqual(false, deserialized.enableF11FullscreenKey, "enableF11FullscreenKey roundtrip");
+            AssertEqual(true, deserialized.enableBrowserHotkeys, "enableBrowserHotkeys roundtrip");
+            AssertEqual(false, deserialized.disableCaretBrowsing, "disableCaretBrowsing roundtrip");
+
+            // Backward compatibility: legacy json missing these keys defaults correctly
+            string legacyJson = "{\"url\":\"https://ehr.hospital.mil\",\"appName\":\"LegacyMedTRx\"}";
+            var legacyDeserialized = serializer.Deserialize<AppConfig>(legacyJson);
+            Assert(legacyDeserialized != null, "Legacy deserialized config must not be null");
+            AssertEqual(true, legacyDeserialized.enableFunctionKeys, "Legacy enableFunctionKeys defaults to true");
+            AssertEqual(true, legacyDeserialized.enableF2SettingsKey, "Legacy enableF2SettingsKey defaults to true");
+            AssertEqual(true, legacyDeserialized.enableF11FullscreenKey, "Legacy enableF11FullscreenKey defaults to true");
+            AssertEqual(false, legacyDeserialized.enableBrowserHotkeys, "Legacy enableBrowserHotkeys defaults to false");
+            AssertEqual(true, legacyDeserialized.disableCaretBrowsing, "Legacy disableCaretBrowsing defaults to true");
         }
 
         private static void Test_AppConfig_LockSettings_Flag()

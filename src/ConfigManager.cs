@@ -21,6 +21,11 @@ namespace MedTRx
         public bool touchFullscreenSidebar { get; set; }
         public bool lockSettings { get; set; }
         public string adminPassword { get; set; }
+        public bool enableFunctionKeys { get; set; }
+        public bool enableF2SettingsKey { get; set; }
+        public bool enableF11FullscreenKey { get; set; }
+        public bool enableBrowserHotkeys { get; set; }
+        public bool disableCaretBrowsing { get; set; }
 
         public AppConfig()
         {
@@ -39,6 +44,11 @@ namespace MedTRx
             touchFullscreenSidebar = true;
             lockSettings = false;
             adminPassword = "";
+            enableFunctionKeys = true;
+            enableF2SettingsKey = true;
+            enableF11FullscreenKey = true;
+            enableBrowserHotkeys = false;
+            disableCaretBrowsing = true;
         }
     }
 
