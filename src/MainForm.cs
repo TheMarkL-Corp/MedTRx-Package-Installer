@@ -129,6 +129,13 @@ namespace MedTRx
                 var env = await CoreWebView2Environment.CreateAsync(browserExecutableFolder, userDataFolder, options);
                 await webView.EnsureCoreWebView2Async(env);
 
+                // Dual-Layer Hotkey Interception: Hook CoreWebView2Controller accelerator key events
+                CoreWebView2Controller controller = GetCoreWebView2Controller();
+                if (controller != null)
+                {
+                    controller.AcceleratorKeyPressed += CoreWebView2Controller_AcceleratorKeyPressed;
+                }
+
                 // Configure WebView2 Settings
                 var settings = webView.CoreWebView2.Settings;
                 settings.AreDevToolsEnabled = config.enableDevTools && !config.lockSettings;
@@ -732,51 +739,88 @@ namespace MedTRx
 
         private void MainForm_KeyDown(object sender, KeyEventArgs e)
         {
-            // F11: Toggle Fullscreen / Windowed
-            if (e.KeyCode == Keys.F11)
+            HotkeyAction action = HotkeyPolicy.Evaluate(e.KeyCode, e.Control, isFullscreen, config);
+            if (action != HotkeyAction.None)
             {
                 e.Handled = true;
-                ToggleFullscreen();
-                return;
+                ExecuteHotkeyAction(action);
             }
+        }
 
-            // ESC: Exit Fullscreen
-            if (e.KeyCode == Keys.Escape && isFullscreen)
+        private void CoreWebView2Controller_AcceleratorKeyPressed(object sender, CoreWebView2AcceleratorKeyPressedEventArgs e)
+        {
+            if (e.KeyEventKind == CoreWebView2KeyEventKind.KeyDown || e.KeyEventKind == CoreWebView2KeyEventKind.SystemKeyDown)
             {
-                e.Handled = true;
-                SetFullscreen(false);
-                return;
-            }
-
-            // F5 or Ctrl+R: Reload
-            if (config.enableNavigationKeys && (e.KeyCode == Keys.F5 || (e.Control && e.KeyCode == Keys.R)))
-            {
-                e.Handled = true;
-                if (webView != null && webView.CoreWebView2 != null)
+                Keys keyCode = (Keys)e.VirtualKey;
+                bool ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control;
+                HotkeyAction action = HotkeyPolicy.Evaluate(keyCode, ctrl, isFullscreen, config);
+                if (action != HotkeyAction.None)
                 {
-                    webView.CoreWebView2.Reload();
+                    e.Handled = true;
+                    ExecuteHotkeyAction(action);
                 }
-                return;
             }
+        }
 
-            // F2 or Ctrl+,: Settings
-            if (e.KeyCode == Keys.F2 || (e.Control && e.KeyCode == Keys.Oemcomma))
+        private void ExecuteHotkeyAction(HotkeyAction action)
+        {
+            switch (action)
             {
-                e.Handled = true;
-                ShowSettingsDialog();
-                return;
+                case HotkeyAction.ToggleFullscreen:
+                    ToggleFullscreen();
+                    break;
+                case HotkeyAction.ExitFullscreen:
+                    SetFullscreen(false);
+                    break;
+                case HotkeyAction.Reload:
+                    if (webView != null && webView.CoreWebView2 != null)
+                    {
+                        webView.CoreWebView2.Reload();
+                    }
+                    break;
+                case HotkeyAction.ShowSettings:
+                    ShowSettingsDialog();
+                    break;
+                case HotkeyAction.OpenDevTools:
+                    if (webView != null && webView.CoreWebView2 != null)
+                    {
+                        webView.CoreWebView2.OpenDevToolsWindow();
+                    }
+                    break;
+                case HotkeyAction.Suppress:
+                    // Suppressed hotkey - do nothing
+                    break;
+                case HotkeyAction.None:
+                default:
+                    break;
             }
+        }
 
-            // F12: DevTools
-            if (e.KeyCode == Keys.F12 && config.enableDevTools && !config.lockSettings)
+        private CoreWebView2Controller GetCoreWebView2Controller()
+        {
+            if (webView == null) return null;
+            try
             {
-                e.Handled = true;
-                if (webView != null && webView.CoreWebView2 != null)
+                System.Reflection.PropertyInfo prop = typeof(WebView2).GetProperty(
+                    "CoreWebView2Controller",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
+                );
+                if (prop != null)
                 {
-                    webView.CoreWebView2.OpenDevToolsWindow();
+                    return prop.GetValue(webView, null) as CoreWebView2Controller;
                 }
-                return;
+
+                System.Reflection.FieldInfo field = typeof(WebView2).GetField(
+                    "_coreWebView2Controller",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
+                );
+                if (field != null)
+                {
+                    return field.GetValue(webView) as CoreWebView2Controller;
+                }
             }
+            catch { }
+            return null;
         }
 
         public void ToggleFullscreen()
