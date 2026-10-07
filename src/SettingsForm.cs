@@ -12,7 +12,10 @@ namespace MedTRx
         private CheckBox chkStartFullscreen;
         private CheckBox chkAlwaysOnTop;
         private CheckBox chkTouchSidebar;
+        private CheckBox chkFunctionKeys;
+        private CheckBox chkF11Fullscreen;
         private CheckBox chkNavigationKeys;
+        private CheckBox chkF2Settings;
         private CheckBox chkEnableDevTools;
         private CheckBox chkLockSettings;
         private TextBox txtAdminPassword;
@@ -32,7 +35,7 @@ namespace MedTRx
         private void InitializeComponent()
         {
             this.Text = "MedTRx - Application Configuration";
-            this.Size = new Size(540, 520);
+            this.Size = new Size(540, 600);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -114,21 +117,21 @@ namespace MedTRx
             // Checkboxes
             chkStartMaximized = new CheckBox();
             chkStartMaximized.Text = "Start Maximized";
-            chkStartMaximized.Location = new Point(20, startY + 132);
+            chkStartMaximized.Location = new Point(20, startY + 130);
             chkStartMaximized.AutoSize = true;
             chkStartMaximized.Checked = Config.startMaximized;
             this.Controls.Add(chkStartMaximized);
 
             chkStartFullscreen = new CheckBox();
             chkStartFullscreen.Text = "Start in Fullscreen / Kiosk Mode (F11 toggles anytime)";
-            chkStartFullscreen.Location = new Point(20, startY + 156);
+            chkStartFullscreen.Location = new Point(20, startY + 154);
             chkStartFullscreen.AutoSize = true;
             chkStartFullscreen.Checked = Config.startFullscreen;
             this.Controls.Add(chkStartFullscreen);
 
             chkAlwaysOnTop = new CheckBox();
             chkAlwaysOnTop.Text = "Keep Window Always on Top (Pins above taskbars & windows)";
-            chkAlwaysOnTop.Location = new Point(20, startY + 180);
+            chkAlwaysOnTop.Location = new Point(20, startY + 178);
             chkAlwaysOnTop.AutoSize = true;
             chkAlwaysOnTop.Checked = Config.alwaysOnTop;
             chkAlwaysOnTop.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
@@ -136,30 +139,57 @@ namespace MedTRx
 
             chkTouchSidebar = new CheckBox();
             chkTouchSidebar.Text = "Show Touchscreen Fullscreen Sidebar (Upper-right corner tab)";
-            chkTouchSidebar.Location = new Point(20, startY + 204);
+            chkTouchSidebar.Location = new Point(20, startY + 202);
             chkTouchSidebar.AutoSize = true;
             chkTouchSidebar.Checked = Config.touchFullscreenSidebar;
             chkTouchSidebar.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             this.Controls.Add(chkTouchSidebar);
 
+            // Function Hotkey Hierarchy (Master toggle & fine-grained overrides)
+            chkFunctionKeys = new CheckBox();
+            chkFunctionKeys.Text = "Enable Physical Keyboard Function Hotkeys (F1–F12, Esc)";
+            chkFunctionKeys.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            chkFunctionKeys.Location = new Point(20, startY + 230);
+            chkFunctionKeys.AutoSize = true;
+            chkFunctionKeys.Checked = Config.enableFunctionKeys;
+            this.Controls.Add(chkFunctionKeys);
+
+            chkF11Fullscreen = new CheckBox();
+            chkF11Fullscreen.Text = "Allow F11 & Esc (Fullscreen & Kiosk Toggle)";
+            chkF11Fullscreen.Location = new Point(40, startY + 254);
+            chkF11Fullscreen.AutoSize = true;
+            chkF11Fullscreen.Checked = Config.enableF11FullscreenKey;
+            chkF11Fullscreen.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            this.Controls.Add(chkF11Fullscreen);
+
             chkNavigationKeys = new CheckBox();
-            chkNavigationKeys.Text = "Enable F5 Reload & Navigation Keys";
-            chkNavigationKeys.Location = new Point(20, startY + 228);
+            chkNavigationKeys.Text = "Allow F5 & Ctrl+R (Page Reload)";
+            chkNavigationKeys.Location = new Point(40, startY + 278);
             chkNavigationKeys.AutoSize = true;
             chkNavigationKeys.Checked = Config.enableNavigationKeys;
+            chkNavigationKeys.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             this.Controls.Add(chkNavigationKeys);
 
+            chkF2Settings = new CheckBox();
+            chkF2Settings.Text = "Allow F2 & Ctrl+, (Settings Configuration)";
+            chkF2Settings.Location = new Point(40, startY + 302);
+            chkF2Settings.AutoSize = true;
+            chkF2Settings.Checked = Config.enableF2SettingsKey;
+            chkF2Settings.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
+            this.Controls.Add(chkF2Settings);
+
             chkEnableDevTools = new CheckBox();
-            chkEnableDevTools.Text = "Enable F12 Developer Tools (Debugging)";
-            chkEnableDevTools.Location = new Point(20, startY + 252);
+            chkEnableDevTools.Text = "Allow F12 Developer Tools (Debugging)";
+            chkEnableDevTools.Location = new Point(40, startY + 326);
             chkEnableDevTools.AutoSize = true;
             chkEnableDevTools.Checked = Config.enableDevTools;
+            chkEnableDevTools.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
             this.Controls.Add(chkEnableDevTools);
 
             // Military / Kiosk Lock Controls
             chkLockSettings = new CheckBox();
             chkLockSettings.Text = "Lock Settings & DevTools (Kiosk / Medical Cart Mode)";
-            chkLockSettings.Location = new Point(20, startY + 276);
+            chkLockSettings.Location = new Point(20, startY + 356);
             chkLockSettings.AutoSize = true;
             chkLockSettings.Checked = Config.lockSettings;
             chkLockSettings.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
@@ -168,21 +198,21 @@ namespace MedTRx
 
             Label lblAdminPwd = new Label();
             lblAdminPwd.Text = "Admin Password (optional):";
-            lblAdminPwd.Location = new Point(20, startY + 303);
+            lblAdminPwd.Location = new Point(20, startY + 386);
             lblAdminPwd.AutoSize = true;
             this.Controls.Add(lblAdminPwd);
 
             txtAdminPassword = new TextBox();
-            txtAdminPassword.Location = new Point(195, startY + 300);
+            txtAdminPassword.Location = new Point(195, startY + 383);
             txtAdminPassword.Width = 305;
             txtAdminPassword.PasswordChar = '●';
             txtAdminPassword.Text = Config.adminPassword != null ? Config.adminPassword : "";
             this.Controls.Add(txtAdminPassword);
 
-            // Buttons
+            // Action Buttons
             btnSave = new Button();
             btnSave.Text = "Save & Launch";
-            btnSave.Location = new Point(260, startY + 345);
+            btnSave.Location = new Point(260, startY + 426);
             btnSave.Size = new Size(130, 36);
             btnSave.BackColor = Color.FromArgb(14, 116, 144);
             btnSave.ForeColor = Color.White;
@@ -194,7 +224,7 @@ namespace MedTRx
 
             btnCancel = new Button();
             btnCancel.Text = "Cancel";
-            btnCancel.Location = new Point(400, startY + 345);
+            btnCancel.Location = new Point(400, startY + 426);
             btnCancel.Size = new Size(100, 36);
             btnCancel.BackColor = Color.FromArgb(226, 232, 240);
             btnCancel.ForeColor = Color.FromArgb(30, 41, 59);
@@ -206,6 +236,22 @@ namespace MedTRx
 
             this.AcceptButton = btnSave;
             this.CancelButton = btnCancel;
+
+            // Wire up interactive dependency updates
+            chkFunctionKeys.CheckedChanged += delegate { UpdateHotkeyControlsState(); };
+            chkLockSettings.CheckedChanged += delegate { UpdateHotkeyControlsState(); };
+            UpdateHotkeyControlsState();
+        }
+
+        private void UpdateHotkeyControlsState()
+        {
+            bool master = chkFunctionKeys.Checked;
+            bool locked = chkLockSettings.Checked;
+
+            chkF11Fullscreen.Enabled = master;
+            chkNavigationKeys.Enabled = master;
+            chkF2Settings.Enabled = master && !locked;
+            chkEnableDevTools.Enabled = master && !locked;
         }
 
         private void BtnCancel_Click(object sender, EventArgs e)
@@ -241,7 +287,10 @@ namespace MedTRx
             Config.startFullscreen = chkStartFullscreen.Checked;
             Config.alwaysOnTop = chkAlwaysOnTop.Checked;
             Config.touchFullscreenSidebar = chkTouchSidebar.Checked;
+            Config.enableFunctionKeys = chkFunctionKeys.Checked;
+            Config.enableF11FullscreenKey = chkF11Fullscreen.Checked;
             Config.enableNavigationKeys = chkNavigationKeys.Checked;
+            Config.enableF2SettingsKey = chkF2Settings.Checked;
             Config.lockSettings = chkLockSettings.Checked;
             Config.adminPassword = txtAdminPassword.Text.Trim();
             Config.enableDevTools = Config.lockSettings ? false : chkEnableDevTools.Checked;
